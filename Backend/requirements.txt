@@ -1,0 +1,36 @@
+# Core Django
+Django>=5.1
+djangorestframework==3.15.2
+django-cors-headers==4.3.1
+python-dotenv==1.0.1
+Pillow>=10.3.0
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+
+# Database
+psycopg[binary]==3.2.13
+django-filter==24.2
+
+# API Documentation
+drf-spectacular==0.27.2
+
+# Async Task Queue (prepared)
+celery==5.4.0
+redis==5.0.7
+
+# Testing
+pytest==8.2.2
+pytest-django==4.8.0
+factory-boy==3.3.0
+
+# Code Quality
+black==24.4.2
+isort==5.13.2
+flake8==7.1.0
+flake8-docstrings==1.7.0
+mypy==1.10.1
+django-stubs==4.2.7
+
+# Type checking
+typing-extensions>=4.14.1
