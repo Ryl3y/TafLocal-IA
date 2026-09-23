@@ -161,3 +161,127 @@ class CandidateProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.prenom} {self.user.nom}"
+
+    @property
+    def experience_annees(self):
+        """Somme (en années) de la durée de toutes les expériences professionnelles.
+
+        Sert de source fiable pour le moteur de matching natif (Phase 2), en
+        remplacement du champ inexistant `candidate.experience_years` utilisé
+        par l'ancien module ai/services.py (Gemini).
+        """
+        total_mois = sum(exp.duree_mois for exp in self.experiences.all())
+        return round(total_mois / 12, 1)
+
+
+class Skill(models.Model):
+    """Catalogue global des compétences (normalisé, partagé entre candidats et offres)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=100, unique=True, verbose_name=_("Nom"))
+    categorie = models.CharField(max_length=50, blank=True, null=True, verbose_name=_("Catégorie"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Créé le"))
+
+    class Meta:
+        db_table = "competence_catalogue"
+        verbose_name = _("Compétence")
+        verbose_name_plural = _("Compétences")
+        ordering = ["nom"]
+
+    def __str__(self):
+        return self.nom
+
+
+class SkillLevel(models.TextChoices):
+    """Niveaux de maîtrise d'une compétence."""
+    DEBUTANT = "DEBUTANT", _("Débutant")
+    INTERMEDIAIRE = "INTERMEDIAIRE", _("Intermédiaire")
+    AVANCE = "AVANCE", _("Avancé")
+    EXPERT = "EXPERT", _("Expert")
+
+
+class CandidateSkill(models.Model):
+    """Association candidat ↔ compétence, avec niveau et expérience."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(
+        CandidateProfile, on_delete=models.CASCADE, related_name="competences"
+    )
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE, related_name="candidats")
+    niveau = models.CharField(
+        max_length=20, choices=SkillLevel.choices, default=SkillLevel.INTERMEDIAIRE,
+        verbose_name=_("Niveau")
+    )
+    annees_experience = models.IntegerField(blank=True, null=True, verbose_name=_("Années d'expérience"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Créé le"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Mis à jour le"))
+
+    class Meta:
+        db_table = "candidat_competence"
+        verbose_name = _("Compétence du candidat")
+        verbose_name_plural = _("Compétences du candidat")
+        ordering = ["-annees_experience"]
+        constraints = [
+            models.UniqueConstraint(fields=["candidate", "skill"], name="unique_candidate_skill")
+        ]
+
+    def __str__(self):
+        return f"{self.candidate} - {self.skill} ({self.niveau})"
+
+
+class WorkExperience(models.Model):
+    """Expérience professionnelle d'un candidat."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(
+        CandidateProfile, on_delete=models.CASCADE, related_name="experiences"
+    )
+    poste = models.CharField(max_length=255, verbose_name=_("Poste"))
+    entreprise = models.CharField(max_length=255, verbose_name=_("Entreprise"))
+    description = models.TextField(blank=True, null=True, verbose_name=_("Description"))
+    date_debut = models.DateField(verbose_name=_("Date de début"))
+    date_fin = models.DateField(blank=True, null=True, verbose_name=_("Date de fin"))
+    en_cours = models.BooleanField(default=False, verbose_name=_("Poste actuel"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Créé le"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Mis à jour le"))
+
+    class Meta:
+        db_table = "experience_professionnelle"
+        verbose_name = _("Expérience professionnelle")
+        verbose_name_plural = _("Expériences professionnelles")
+        ordering = ["-date_debut"]
+
+    def __str__(self):
+        return f"{self.poste} chez {self.entreprise}"
+
+    @property
+    def duree_mois(self):
+        """Durée de l'expérience en mois (jusqu'à aujourd'hui si en cours)."""
+        fin = self.date_fin if (self.date_fin and not self.en_cours) else timezone.now().date()
+        return max(0, (fin.year - self.date_debut.year) * 12 + (fin.month - self.date_debut.month))
+
+
+class Education(models.Model):
+    """Formation académique d'un candidat."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(
+        CandidateProfile, on_delete=models.CASCADE, related_name="formations"
+    )
+    diplome = models.CharField(max_length=255, verbose_name=_("Diplôme"))
+    etablissement = models.CharField(max_length=255, verbose_name=_("Établissement"))
+    description = models.TextField(blank=True, null=True, verbose_name=_("Description"))
+    date_debut = models.DateField(blank=True, null=True, verbose_name=_("Date de début"))
+    date_fin = models.DateField(blank=True, null=True, verbose_name=_("Date de fin"))
+    en_cours = models.BooleanField(default=False, verbose_name=_("Formation en cours"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Créé le"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Mis à jour le"))
+
+    class Meta:
+        db_table = "formation"
+        verbose_name = _("Formation")
+        verbose_name_plural = _("Formations")
+        ordering = ["-date_fin"]
+
+    def __str__(self):
+        return f"{self.diplome} - {self.etablissement}"

@@ -41,8 +41,6 @@ class CVViewSet(viewsets.ModelViewSet):
         except CandidateProfile.DoesNotExist:
             candidate_profile, created = CandidateProfile.objects.get_or_create(
                 user=self.request.user,
-                first_name=self.request.user.first_name,
-                last_name=self.request.user.last_name
             )
         cv = serializer.save(
             candidate=candidate_profile,
@@ -68,8 +66,6 @@ class CVViewSet(viewsets.ModelViewSet):
             except CandidateProfile.DoesNotExist:
                 candidate_profile, created = CandidateProfile.objects.get_or_create(
                     user=self.request.user,
-                    first_name=self.request.user.first_name,
-                    last_name=self.request.user.last_name
                 )
                 logger.info(f"created candidate_profile: {created}")
             return queryset.filter(candidate=candidate_profile)

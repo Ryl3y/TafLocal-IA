@@ -7,7 +7,7 @@ from typing import Dict, List, Any
 from django.db.models import Q
 from users.models import CandidateProfile
 from companies.models import Company
-from .models import Job, ContractType
+from .models import Job, ContractType, JobStatus
 from cv_analysis.models import CV, CVAnalysis, DetectedSkill, AIRecommendation
 
 logger = logging.getLogger(__name__)
@@ -165,7 +165,7 @@ class JobMatchingService:
             candidate_skills = JobMatchingService.get_candidate_skills(candidate_id)
             
             # Récupérer toutes les offres actives
-            jobs = Job.objects.filter(statut='ACTIVE').select_related('entreprise')
+            jobs = Job.objects.filter(statut=JobStatus.PUBLISHED).select_related('entreprise')
             
             results = []
             for job in jobs:

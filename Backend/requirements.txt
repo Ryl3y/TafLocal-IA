@@ -19,6 +19,10 @@ drf-spectacular==0.27.2
 celery==5.4.0
 redis==5.0.7
 
+# AI / CV parsing (module ai — legacy Gemini, à retirer en Phase 2)
+google-genai==1.2.0
+PyPDF2==3.0.1
+
 # Testing
 pytest==8.2.2
 pytest-django==4.8.0
