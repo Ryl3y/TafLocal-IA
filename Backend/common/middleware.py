@@ -25,7 +25,8 @@ class AuditLogMiddleware(MiddlewareMixin):
 
     def process_response(self, request, response):
         """Process outgoing response."""
-        if hasattr(request, "user") and request.user.is_authenticated:
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated and request.path.startswith("/api/"):
             # Log specific actions
             if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
                 self.log_action(request, response)
@@ -35,7 +36,7 @@ class AuditLogMiddleware(MiddlewareMixin):
         """Get client IP address."""
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0]
+            ip = x_forwarded_for.split(",")[0].strip()
         else:
             ip = request.META.get("REMOTE_ADDR")
         return ip
@@ -53,13 +54,15 @@ class AuditLogMiddleware(MiddlewareMixin):
             
             # Only log successful requests
             if response.status_code < 400:
+                match = getattr(request, "resolver_match", None)
+                object_id = (match.kwargs.get("pk") if match else None) or ""
                 AuditLog.objects.create(
                     user=request.user,
                     action=action,
                     model_name=self.get_model_name(request),
-                    object_id=str(getattr(request, "pk", "")),
+                    object_id=str(object_id)[:100],
                     ip_address=request.audit_log_data.get("ip_address"),
-                    user_agent=request.audit_log_data.get("user_agent"),
+                    user_agent=(request.audit_log_data.get("user_agent") or "")[:1000],
                 )
         except Exception as e:
             logger.error(f"Error logging audit: {e}")

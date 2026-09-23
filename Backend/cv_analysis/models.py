@@ -8,10 +8,10 @@ from django.utils.translation import gettext_lazy as _
 
 class AnalysisStatus(models.TextChoices):
     """Énumération des statuts d'analyse."""
-    PENDING = "PENDING", _("Pending")
-    PROCESSING = "PROCESSING", _("Processing")
-    COMPLETED = "COMPLETED", _("Completed")
-    FAILED = "FAILED", _("Failed")
+    PENDING = "PENDING", _("En attente")
+    PROCESSING = "PROCESSING", _("En cours")
+    COMPLETED = "COMPLETED", _("Terminée")
+    FAILED = "FAILED", _("Échec")
 
 
 class CV(models.Model):
@@ -47,6 +47,12 @@ class CVAnalysis(models.Model):
     strengths = models.JSONField(blank=True, default=list)
     weaknesses = models.JSONField(blank=True, default=list)
     recommendations_data = models.JSONField(blank=True, default=list)
+    score_details = models.JSONField(blank=True, default=dict)
+    summary = models.TextField(blank=True, default="")
+    experience_years = models.FloatField(blank=True, null=True)
+    education_level = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=AnalysisStatus.choices, default=AnalysisStatus.COMPLETED)
+    error_message = models.TextField(blank=True, default="")
     analyzed_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

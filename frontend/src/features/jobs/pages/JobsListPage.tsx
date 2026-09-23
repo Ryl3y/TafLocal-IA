@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Search, MapPin, BriefcaseBusiness, Clock3, Filter } from 'lucide-react'
 import { PageShell } from '../../../components/common'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/cards/Card'
@@ -7,40 +7,38 @@ import { EmptyState } from '../../../components/feedback/EmptyState'
 import { Loader } from '../../../components/feedback/Loader'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
-import { jobsService, type Job, type JobFilters } from '../../../services/api/jobsService'
+import { useApiData } from '../../../hooks'
+import { CONTRACT_TYPES, formatJobSalary, jobsService, type JobFilters } from '../../../services/api/jobsService'
 import { ROUTES } from '../../../constants/routes'
 
 export function JobsListPage() {
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [filters, setFilters] = useState<JobFilters>({})
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const loadJobs = async () => {
-    try {
-      setIsLoading(true)
-      const data = await jobsService.getJobs({
-        ...filters,
-        search: searchQuery || undefined,
-        statut: 'ACTIVE',
-      })
-      setJobs(data)
-      setErrorMessage(null)
-    } catch (error) {
-      setErrorMessage('Impossible de charger les offres.')
-    } finally {
-      setIsLoading(false)
-    }
+  const [searchParams, setSearchParams] = useSearchParams()
+  const appliedSearch = searchParams.get('search') ?? ''
+  const [searchQuery, setSearchQuery] = useState(appliedSearch)
+  // Recherche lancée depuis la barre de navigation alors que la page est déjà ouverte.
+  const [syncedSearch, setSyncedSearch] = useState(appliedSearch)
+  if (syncedSearch !== appliedSearch) {
+    setSyncedSearch(appliedSearch)
+    setSearchQuery(appliedSearch)
+  }
+  const setAppliedSearch = (value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set('search', value)
+    else next.delete('search')
+    setSearchParams(next)
   }
 
-  useEffect(() => {
-    loadJobs()
-  }, [filters])
+  // Le backend ne renvoie aux candidats que les offres publiées et non expirées.
+  const { data: jobs = [], isLoading, error: errorText, reload: loadJobs } = useApiData(
+    () => jobsService.getJobs({ ...filters, search: appliedSearch || undefined }),
+    [JSON.stringify(filters), appliedSearch],
+    'Impossible de charger les offres.',
+  )
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: FormEvent) => {
     e.preventDefault()
-    loadJobs()
+    setAppliedSearch(searchQuery.trim())
   }
 
   const handleFilterChange = (key: keyof JobFilters, value: string) => {
@@ -77,28 +75,26 @@ export function JobsListPage() {
                 className="w-full rounded-lg border border-border bg-background px-4 py-2 text-foreground focus:border-primary focus:outline-none"
               >
                 <option value="">Tous</option>
-                <option value="CDI">CDI</option>
-                <option value="CDD">CDD</option>
-                <option value="Freelance">Freelance</option>
-                <option value="Stage">Stage</option>
-                <option value="Alternance">Alternance</option>
+                {CONTRACT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Niveau d'expérience
+                Expérience demandée
               </label>
               <select
-                value={filters.experience_requise || ''}
-                onChange={(e) => handleFilterChange('experience_requise', e.target.value)}
+                value={filters.experience_max ?? ''}
+                onChange={(e) => handleFilterChange('experience_max', e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-4 py-2 text-foreground focus:border-primary focus:outline-none"
               >
-                <option value="">Tous</option>
-                <option value="Junior">Junior</option>
-                <option value="Confirmé">Confirmé</option>
-                <option value="Senior">Senior</option>
-                <option value="Expert">Expert</option>
+                <option value="">Toutes</option>
+                <option value="0">Débutant accepté</option>
+                <option value="2">2 ans maximum</option>
+                <option value="5">5 ans maximum</option>
+                <option value="10">10 ans maximum</option>
               </select>
             </div>
 
@@ -120,11 +116,15 @@ export function JobsListPage() {
               </select>
             </div>
 
-            {(filters.type_contrat || filters.experience_requise) && (
+            {(filters.type_contrat || filters.experience_max !== undefined) && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setFilters({})}
+                onClick={() => {
+                  setFilters({})
+                  setSearchQuery('')
+                  setAppliedSearch('')
+                }}
                 className="w-full"
               >
                 Réinitialiser les filtres
@@ -154,10 +154,10 @@ export function JobsListPage() {
             <div className="rounded-2xl border border-border bg-surface p-6">
               <Loader label="Chargement des offres…" />
             </div>
-          ) : errorMessage ? (
+          ) : errorText ? (
             <EmptyState
               title="Erreur"
-              description={errorMessage}
+              description={errorText}
               actionLabel="Réessayer"
               onAction={loadJobs}
             />
@@ -185,7 +185,7 @@ export function JobsListPage() {
                     <div className="flex flex-wrap gap-4 text-sm text-muted">
                       <span className="inline-flex items-center gap-2">
                         <MapPin className="h-4 w-4" />
-                        {job.localisation}
+                        {job.localisation || 'Non précisée'}
                       </span>
                       <span className="inline-flex items-center gap-2">
                         <Clock3 className="h-4 w-4" />
@@ -193,14 +193,21 @@ export function JobsListPage() {
                       </span>
                       <span className="inline-flex items-center gap-2">
                         <BriefcaseBusiness className="h-4 w-4" />
-                        {job.salaire_min} - {job.salaire_max} {job.devise}
+                        {formatJobSalary(job)}
                       </span>
                     </div>
 
-                    {job.experience_requise && (
-                      <Badge variant="outline" className="w-fit">
-                        {job.experience_requise}
-                      </Badge>
+                    {job.competences_requises.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {job.competences_requises.slice(0, 6).map((skill) => (
+                          <Badge key={skill} variant="outline">{skill}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    {job.experience_requise !== null && job.experience_requise !== undefined && (
+                      <p className="text-xs text-muted">
+                        Expérience demandée : {job.experience_requise} an(s)
+                      </p>
                     )}
 
                     <div className="flex flex-wrap gap-2 pt-2">

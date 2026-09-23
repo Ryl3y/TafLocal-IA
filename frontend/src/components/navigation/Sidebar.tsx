@@ -25,6 +25,12 @@ const iconMap = {
   '/settings': NAV_ICONS.settings,
   '/company/dashboard': NAV_ICONS.company,
   '/admin/dashboard': NAV_ICONS.admin,
+  '/jobs/list': NAV_ICONS.jobs,
+  '/applications': NAV_ICONS.cvAnalysis,
+  '/interview': NAV_ICONS.interview,
+  '/company/jobs': NAV_ICONS.jobs,
+  '/company/applications': NAV_ICONS.profile,
+  '/company/profile': NAV_ICONS.company,
 } as const
 
 /**

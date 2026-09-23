@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- fichier de configuration des routes (pas de HMR requis) */
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, type RouteObject } from 'react-router-dom'
 import { ROLES, ROUTES } from '../../constants'
@@ -22,6 +23,7 @@ const JobsListPage = lazy(() => import('../../features/jobs/pages/JobsListPage')
 const RecommendedJobsPage = lazy(() => import('../../features/jobs/pages/RecommendedJobsPage'))
 const JobDetailsPage = lazy(() => import('../../features/jobs/pages/JobDetailsPage'))
 const ApplyPage = lazy(() => import('../../features/applications/pages/ApplyPage'))
+const MyApplicationsPage = lazy(() => import('../../features/applications/pages/MyApplicationsPage'))
 const InterviewPage = lazy(() => import('../../features/interview/pages/InterviewPage'))
 const InterviewFeedbackPage = lazy(() => import('../../features/interview/pages/InterviewFeedbackPage'))
 const ProfilePage = lazy(() => import('../../features/profile/pages/ProfilePage'))
@@ -141,8 +143,12 @@ export const appRoutes: RouteObject[] = [
         element: withSuspense(<ApplyPage />),
       },
       {
+        path: ROUTES.MY_APPLICATIONS,
+        element: withSuspense(<MyApplicationsPage />),
+      },
+      {
         path: ROUTES.INTERVIEW_ROOT,
-        element: <Navigate to={ROUTES.INTERVIEW.replace(':sessionId', 'demo-session')} replace />,
+        element: <Navigate to={ROUTES.INTERVIEW.replace(':sessionId', 'new')} replace />,
       },
       {
         path: ROUTES.INTERVIEW,

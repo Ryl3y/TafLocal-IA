@@ -10,12 +10,12 @@ from django.utils.translation import gettext_lazy as _
 
 class ApplicationStatus(models.TextChoices):
     """Énumération des statuts de candidature (correspond au PostgreSQL ENUM application_status)."""
-    PENDING = "PENDING", _("Pending")
-    UNDER_REVIEW = "UNDER_REVIEW", _("Under Review")
-    SHORTLISTED = "SHORTLISTED", _("Shortlisted")
-    REJECTED = "REJECTED", _("Rejected")
-    HIRED = "HIRED", _("Hired")
-    WITHDRAWN = "WITHDRAWN", _("Withdrawn")
+    PENDING = "PENDING", _("En attente")
+    UNDER_REVIEW = "UNDER_REVIEW", _("En cours d'examen")
+    SHORTLISTED = "SHORTLISTED", _("Présélectionnée")
+    REJECTED = "REJECTED", _("Refusée")
+    HIRED = "HIRED", _("Retenue")
+    WITHDRAWN = "WITHDRAWN", _("Retirée")
 
 
 class Application(models.Model):

@@ -13,17 +13,17 @@ class ContractType(models.TextChoices):
     CDI = "CDI", _("CDI")
     CDD = "CDD", _("CDD")
     FREELANCE = "FREELANCE", _("Freelance")
-    INTERNSHIP = "INTERNSHIP", _("Internship")
-    APPRENTICESHIP = "APPRENTICESHIP", _("Apprenticeship")
+    INTERNSHIP = "INTERNSHIP", _("Stage")
+    APPRENTICESHIP = "APPRENTICESHIP", _("Alternance")
 
 
 class JobStatus(models.TextChoices):
     """Énumération des statuts d'emploi (correspond au PostgreSQL ENUM job_status)."""
-    DRAFT = "DRAFT", _("Draft")
-    PUBLISHED = "PUBLISHED", _("Published")
-    CLOSED = "CLOSED", _("Closed")
-    ARCHIVED = "ARCHIVED", _("Archived")
-    EXPIRED = "EXPIRED", _("Expired")
+    DRAFT = "DRAFT", _("Brouillon")
+    PUBLISHED = "PUBLISHED", _("Publiée")
+    CLOSED = "CLOSED", _("Clôturée")
+    ARCHIVED = "ARCHIVED", _("Archivée")
+    EXPIRED = "EXPIRED", _("Expirée")
 
 
 class Job(models.Model):
@@ -33,6 +33,13 @@ class Job(models.Model):
     entreprise = models.ForeignKey("companies.Company", on_delete=models.CASCADE, related_name="jobs")
     titre = models.CharField(max_length=255, verbose_name=_("Titre"))
     description = models.TextField(verbose_name=_("Description"))
+    exigences = models.TextField(blank=True, null=True, verbose_name=_("Exigences du poste"))
+    competences_requises = models.ManyToManyField(
+        "users.Skill",
+        blank=True,
+        related_name="offres",
+        verbose_name=_("Compétences requises"),
+    )
     localisation = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("Localisation"))
     type_contrat = models.CharField(
         max_length=20,
@@ -69,3 +76,12 @@ class Job(models.Model):
 
     def __str__(self):
         return f"{self.titre} - {self.entreprise.nom_entreprise}"
+
+    @property
+    def is_open(self):
+        """L'offre accepte-t-elle encore des candidatures ?"""
+        from django.utils import timezone
+
+        if self.statut != JobStatus.PUBLISHED:
+            return False
+        return self.date_expiration is None or self.date_expiration > timezone.now()

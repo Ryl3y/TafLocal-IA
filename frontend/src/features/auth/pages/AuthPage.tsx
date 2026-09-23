@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { PageShell } from '../../../components/common'
@@ -22,8 +22,11 @@ const registerSchema = z.object({
   firstName: z.string().min(2, 'Le prénom est requis.'),
   lastName: z.string().min(2, 'Le nom est requis.'),
   email: z.string().min(1, 'L’email est requis').email('Veuillez saisir un email valide.'),
-  password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères.'),
-  role: z.enum([ROLES.CANDIDATE, ROLES.COMPANY, ROLES.ADMIN] as const),
+  password: z
+    .string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères.')
+    .refine((value) => !/^\d+$/.test(value), 'Le mot de passe ne peut pas être uniquement numérique.'),
+  role: z.enum([ROLES.CANDIDATE, ROLES.COMPANY] as const),
   companyName: z.string().optional(),
 }).superRefine((values, ctx) => {
   if (values.role === ROLES.COMPANY && (!values.companyName || values.companyName.trim().length < 2)) {
@@ -45,7 +48,7 @@ export function AuthPage() {
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: 'candidate@taflocal.ai', password: 'password123' },
+    defaultValues: { email: '', password: '' },
   })
 
   const registerForm = useForm<RegisterFormValues>({
@@ -60,10 +63,9 @@ export function AuthPage() {
     },
   })
 
-  const selectedRole = registerForm.watch('role')
+  const selectedRole = useWatch({ control: registerForm.control, name: 'role' })
 
   useEffect(() => {
-    console.log("AuthPage useEffect:", { isAuthenticated, user })
     if (isAuthenticated && user) {
       const destination =
         user.role === ROLES.COMPANY
@@ -71,7 +73,6 @@ export function AuthPage() {
           : user.role === ROLES.ADMIN
             ? ROUTES.ADMIN_DASHBOARD
             : ROUTES.DASHBOARD
-      console.log("Navigating to:", destination)
       navigate(destination, { replace: true })
     }
   }, [isAuthenticated, navigate, user])
@@ -197,7 +198,6 @@ export function AuthPage() {
                   >
                     <option value={ROLES.CANDIDATE}>Candidat</option>
                     <option value={ROLES.COMPANY}>Entreprise</option>
-                    <option value={ROLES.ADMIN}>Administrateur</option>
                   </select>
                 </FormField>
                 {selectedRole === ROLES.COMPANY && (

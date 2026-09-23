@@ -2,114 +2,119 @@
 Vues d'analyse de CV pour TafLocal AI.
 """
 
-from rest_framework import viewsets, status
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+
+from ai.services import CVAnalysisService
+from authentication.permissions import IsCandidate
+from common.throttling import AIRateThrottle
+from users.models import UserRole, get_candidate_profile
 
 from .models import CV, CVAnalysis
-from .serializers import (
-    CVSerializer,
-    CVUploadSerializer,
-    CVAnalysisSerializer,
-)
-from .services import CVAnalysisService
-from users.models import UserRole, CandidateProfile
+from .serializers import CVAnalysisSerializer, CVSerializer, CVUploadSerializer
+
+
+def visible_cv_filter(user, prefix=""):
+    """Filtre des CV visibles : le candidat voit les siens, l'entreprise ceux
+    des candidats ayant postulé à ses offres, l'admin tout."""
+    if user.role == UserRole.ADMIN:
+        return {}
+    if user.role == UserRole.CANDIDATE:
+        return {f"{prefix}candidate__user": user}
+    if user.role == UserRole.COMPANY:
+        return {f"{prefix}candidate__applications__offre__entreprise__user": user}
+    return None
 
 
 class CVViewSet(viewsets.ModelViewSet):
-    """ViewSet de CV."""
+    """Gestion des CV (upload, liste, suppression, analyse)."""
 
-    queryset = CV.objects.select_related("candidate__user").all()
+    queryset = CV.objects.select_related("candidate__user", "analysis").all()
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     ordering_fields = ["uploaded_at"]
     ordering = ["-uploaded_at"]
+    http_method_names = ["get", "post", "delete", "head", "options"]
 
     def get_serializer_class(self):
         if self.action == "create":
             return CVUploadSerializer
         return CVSerializer
 
-    def perform_create(self, serializer):
-        file = serializer.validated_data["file"]
-        try:
-            candidate_profile = self.request.user.candidate_profile
-        except CandidateProfile.DoesNotExist:
-            candidate_profile, created = CandidateProfile.objects.get_or_create(
-                user=self.request.user,
-                first_name=self.request.user.first_name,
-                last_name=self.request.user.last_name
-            )
-        cv = serializer.save(
-            candidate=candidate_profile,
-            file_name=file.name,
-            file_size=file.size,
-            file_type=file.content_type,
-        )
-        # Déclencher l'analyse de CV
-        CVAnalysisService.analyze_cv(cv.id)
-        return cv
+    def get_permissions(self):
+        if self.action in ["create", "destroy", "analyze"]:
+            return [IsCandidate()]
+        return [IsAuthenticated()]
+
+    def get_throttles(self):
+        if self.action in ["create", "analyze"]:
+            return [*super().get_throttles(), AIRateThrottle()]
+        return super().get_throttles()
 
     def get_queryset(self):
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info("get_queryset called")
-        logger.info(f"request.user: {self.request.user}")
-        logger.info(f"request.user.role: {self.request.user.role}")
-        queryset = super().get_queryset()
-        if self.request.user.role == UserRole.CANDIDATE:
-            try:
-                candidate_profile = self.request.user.candidate_profile
-                logger.info(f"candidate_profile: {candidate_profile}")
-            except CandidateProfile.DoesNotExist:
-                candidate_profile, created = CandidateProfile.objects.get_or_create(
-                    user=self.request.user,
-                    first_name=self.request.user.first_name,
-                    last_name=self.request.user.last_name
-                )
-                logger.info(f"created candidate_profile: {created}")
-            return queryset.filter(candidate=candidate_profile)
-        return queryset
+        filters = visible_cv_filter(self.request.user)
+        if filters is None:
+            return CV.objects.none()
+        return super().get_queryset().filter(**filters).distinct()
 
-    @extend_schema(
-        methods=["POST"],
-        responses=OpenApiResponse(description="Analyse de CV démarrée"),
-        description="Déclencher l'analyse de CV"
-    )
+    def perform_create(self, serializer):
+        file = serializer.validated_data["file"]
+        cv = serializer.save(
+            candidate=get_candidate_profile(self.request.user),
+            file_name=file.name[:255],
+            file_size=file.size,
+            file_type=(getattr(file, "content_type", "") or "")[:50],
+        )
+        # Analyse locale immédiate (ou via Celery si AI_USE_CELERY=True).
+        CVAnalysisService.analyze_async_or_sync(cv)
+
+    def perform_destroy(self, instance):
+        storage, name = instance.file.storage, instance.file.name
+        instance.delete()
+        if name and storage.exists(name):
+            storage.delete(name)
+
+    @extend_schema(responses=CVAnalysisSerializer, description="Relancer l'analyse IA du CV.")
     @action(detail=True, methods=["post"])
     def analyze(self, request, pk=None):
-        """Déclencher l'analyse de CV."""
+        """Déclencher (ou relancer) l'analyse de CV."""
         cv = self.get_object()
-        try:
-            candidate_profile = request.user.candidate_profile
-        except CandidateProfile.DoesNotExist:
-            return Response({"error": "Profil candidat introuvable"}, status=status.HTTP_400_BAD_REQUEST)
-        if cv.candidate != candidate_profile:
-            return Response({"error": "Non autorisé"}, status=status.HTTP_403_FORBIDDEN)
-        CVAnalysisService.analyze_cv(cv.id)
-        return Response({"message": "Analyse de CV démarrée"}, status=status.HTTP_200_OK)
+        analysis = CVAnalysisService.analyze(cv)
+        http_status = status.HTTP_200_OK if analysis.status == "COMPLETED" else status.HTTP_422_UNPROCESSABLE_ENTITY
+        return Response(CVAnalysisSerializer(analysis, context={"request": request}).data, status=http_status)
+
+    @extend_schema(responses={200: CVAnalysisSerializer, 204: OpenApiResponse(description="Aucun CV analysé")})
+    @action(detail=False, methods=["get"])
+    def latest(self, request):
+        cv = self.get_queryset().filter(analysis__isnull=False).order_by("-uploaded_at").first()
+        if cv is None:
+            # Situation normale pour un nouveau candidat : pas d'erreur, pas de contenu.
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(CVAnalysisSerializer(cv.analysis, context={"request": request}).data)
 
 
 class CVAnalysisViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet d'analyse de CV."""
+    """Résultats d'analyse de CV."""
 
-    queryset = CVAnalysis.objects.select_related("cv__candidate").all()
+    queryset = CVAnalysis.objects.select_related("cv__candidate__user").prefetch_related(
+        "detected_skills", "missing_skills", "recommendations"
+    )
     serializer_class = CVAnalysisSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ["cv"]
+    filterset_fields = ["cv", "status"]
     ordering_fields = ["analyzed_at"]
     ordering = ["-analyzed_at"]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.request.user.role == UserRole.CANDIDATE:
-            try:
-                return queryset.filter(cv__candidate=self.request.user.candidate_profile)
-            except CandidateProfile.DoesNotExist:
-                return CVAnalysis.objects.none()
-        return queryset
+        filters = visible_cv_filter(self.request.user, prefix="cv__")
+        if filters is None:
+            return CVAnalysis.objects.none()
+        return super().get_queryset().filter(**filters).distinct()
