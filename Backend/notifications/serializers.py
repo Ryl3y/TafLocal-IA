@@ -23,7 +23,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             "lu",
             "date_envoi",
         ]
-        read_only_fields = ["id", "date_envoi"]
+        read_only_fields = ["id", "user", "type", "titre", "message", "date_envoi"]
 
 
 class NotificationUpdateSerializer(serializers.ModelSerializer):

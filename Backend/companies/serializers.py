@@ -26,7 +26,7 @@ class CompanySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "verified", "created_at", "updated_at"]
 
 
 class CompanyUpdateSerializer(serializers.ModelSerializer):

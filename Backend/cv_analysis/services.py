@@ -1,44 +1,19 @@
 """
-Implémentation du service d'analyse de CV.
+Service d'analyse de CV.
+
+Délègue au moteur IA interne (``ai.services.CVAnalysisService``). Ce module
+est conservé pour compatibilité avec les imports existants.
 """
 
-import logging
-from typing import Dict, Any
-from .models import CV, CVAnalysis
-
-logger = logging.getLogger(__name__)
+from ai.services import CVAnalysisService as _EngineCVAnalysisService
 
 
 class CVAnalysisService:
-    """Service pour les opérations d'analyse de CV."""
+    """Façade historique : ``CVAnalysisService.analyze_cv(cv_id)``."""
 
     @staticmethod
-    def analyze_cv(cv_id: int) -> Dict[str, Any]:
-        """Analyser un CV et stocker les résultats."""
-        try:
-            cv = CV.objects.get(id=cv_id)
-            
-            # TODO : Implémenter l'analyse réelle avec l'IA
-            # Pour l'instant, on crée une analyse vide
-            analysis, created = CVAnalysis.objects.get_or_create(
-                cv=cv,
-                defaults={
-                    "employability_score": 0,
-                    "strengths": [],
-                    "weaknesses": [],
-                    "recommendations_data": [],
-                }
-            )
-            
-            cv.is_processed = True
-            cv.save()
-            
-            logger.info(f"Analyse de CV terminée pour CV ID : {cv_id}")
-            return {"success": True, "analysis_id": analysis.id}
-            
-        except CV.DoesNotExist:
-            logger.error(f"CV introuvable : {cv_id}")
-            return {"success": False, "error": "CV introuvable"}
-        except Exception as e:
-            logger.error(f"Erreur lors de l'analyse du CV : {e}")
-            return {"success": False, "error": str(e)}
+    def analyze_cv(cv_id: int):
+        from .models import CV
+
+        cv = CV.objects.select_related("candidate__user").get(pk=cv_id)
+        return _EngineCVAnalysisService.analyze(cv)

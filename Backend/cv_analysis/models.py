@@ -47,6 +47,12 @@ class CVAnalysis(models.Model):
     strengths = models.JSONField(blank=True, default=list)
     weaknesses = models.JSONField(blank=True, default=list)
     recommendations_data = models.JSONField(blank=True, default=list)
+    score_details = models.JSONField(blank=True, default=dict)
+    summary = models.TextField(blank=True, default="")
+    experience_years = models.FloatField(blank=True, null=True)
+    education_level = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=AnalysisStatus.choices, default=AnalysisStatus.COMPLETED)
+    error_message = models.TextField(blank=True, default="")
     analyzed_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

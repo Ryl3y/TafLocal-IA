@@ -174,6 +174,15 @@ class CandidateProfile(models.Model):
         return round(total_mois / 12, 1)
 
 
+def get_candidate_profile(user):
+    """Retourner le profil candidat de l'utilisateur, en le créant au besoin."""
+    try:
+        return user.candidate_profile
+    except CandidateProfile.DoesNotExist:
+        profile, _ = CandidateProfile.objects.get_or_create(user=user)
+        return profile
+
+
 class Skill(models.Model):
     """Catalogue global des compétences (normalisé, partagé entre candidats et offres)."""
 

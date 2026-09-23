@@ -57,6 +57,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "drf_spectacular",
     "corsheaders",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 # Applications locales
@@ -84,7 +85,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # "common.middleware.AuditLogMiddleware",
+    "common.middleware.AuditLogMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -107,17 +108,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Base de données
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "taflocal_ai"),
-        "USER": os.getenv("DB_USER", "postgres"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "postgres"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+# Base de données (PostgreSQL par défaut ; DB_ENGINE=sqlite pour un essai rapide)
+if os.getenv("DB_ENGINE", "postgresql").lower() == "sqlite":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / os.getenv("DB_NAME", "db.sqlite3"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "taflocal_ai"),
+            "USER": os.getenv("DB_USER", "postgres"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "postgres"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    }
 
 # Validation du mot de passe
 AUTH_PASSWORD_VALIDATORS = [
@@ -136,8 +145,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalisation
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = "fr-fr"
+TIME_ZONE = os.getenv("TIME_ZONE", "Africa/Douala")
 USE_I18N = True
 USE_TZ = True
 
@@ -186,6 +195,7 @@ REST_FRAMEWORK = {
         "sustained": "1000/hour",
         "anon_burst": "20/min",
         "anon_sustained": "100/hour",
+        "ai": os.getenv("AI_THROTTLE_RATE", "60/min"),
     },
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -214,10 +224,32 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "UserRoleEnum": "users.models.UserRole",
+        "JobStatusEnum": "jobs.models.JobStatus",
+        "ApplicationStatusEnum": "applications.models.ApplicationStatus",
+        "InterviewStatusEnum": "interviews.models.InterviewStatus",
+    },
 }
 
+# Sécurité HTTPS (activée automatiquement hors mode debug, désactivable par variable d'environnement)
+SECURE_SSL = env_bool("SECURE_SSL", default=not DEBUG)
+SESSION_COOKIE_SECURE = SECURE_SSL
+CSRF_COOKIE_SECURE = SECURE_SSL
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=False)
+SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", 0))
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if env_bool("BEHIND_PROXY") else None
+
 # Configuration CORS
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5175,http://127.0.0.1:5175").split(",")
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    default=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+)
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     "content-type",
@@ -232,6 +264,21 @@ CORS_ALLOW_METHODS = [
     "DELETE",
     "OPTIONS",
 ]
+
+# Moteur IA interne (aucune API externe)
+AI_ENGINE = {
+    # Durée de validité des scores de compatibilité mis en cache (secondes).
+    "MATCH_CACHE_TTL": int(os.getenv("AI_MATCH_CACHE_TTL", 3600)),
+    # Nombre de questions générées par défaut pour une simulation d'entretien.
+    "INTERVIEW_DEFAULT_QUESTIONS": int(os.getenv("AI_INTERVIEW_QUESTIONS", 6)),
+    # Nombre maximal d'offres analysées pour les recommandations.
+    "MAX_JOBS_SCANNED": int(os.getenv("AI_MAX_JOBS_SCANNED", 500)),
+    # Exécuter l'analyse de CV via Celery (nécessite Redis et un worker).
+    "USE_CELERY": env_bool("AI_USE_CELERY", default=False),
+}
+
+# Fichiers de CV acceptés
+CV_MAX_UPLOAD_SIZE = int(os.getenv("CV_MAX_UPLOAD_SIZE", 5 * 1024 * 1024))
 
 # Configuration Celery
 CELERY_BROKER_URL = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('REDIS_DB', '0')}"
