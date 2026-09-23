@@ -42,8 +42,10 @@ export interface UserProfile {
   role: string
   nom?: string
   prenom?: string
-  candidate_profile?: any
-  company_profile?: any
+  telephone?: string | null
+  date_inscription?: string
+  candidate_profile?: Record<string, unknown> | null
+  company_profile?: Record<string, unknown> | null
 }
 
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
@@ -51,28 +53,25 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
   apiClient.clearToken()
   const response = await apiClient.post<AuthResponse>('/auth/login/', credentials)
   apiClient.setToken(response.access)
-  localStorage.setItem('refresh_token', response.refresh)
+  apiClient.setRefreshToken(response.refresh)
   return response
 }
 
 export async function register(data: RegisterData): Promise<AuthResponse> {
-  // Si username n'est pas fourni, utiliser l'email comme username
-  const registerPayload = {
+  apiClient.clearToken()
+  // Si username n'est pas fourni, le backend utilise l'email
+  const response = await apiClient.post<AuthResponse>('/auth/register/', {
     ...data,
-    username: data.username || data.email
-  }
-  
-  console.log("Données envoyées au backend pour l'inscription:", registerPayload)
-  const response = await apiClient.post<AuthResponse>('/auth/register/', registerPayload)
-  
-  // Si la réponse n'inclut pas les tokens, on doit se connecter immédiatement après
+    username: data.username || data.email,
+  })
+
+  // Si la réponse n'inclut pas les tokens, on se connecte immédiatement après
   if (!response.access) {
-    const loginResponse = await login({ email: data.email, password: data.password })
-    return loginResponse
+    return login({ email: data.email, password: data.password })
   }
-  
+
   apiClient.setToken(response.access)
-  localStorage.setItem('refresh_token', response.refresh)
+  apiClient.setRefreshToken(response.refresh)
   return response
 }
 
@@ -80,21 +79,12 @@ export async function logout(): Promise<void> {
   const refreshToken = localStorage.getItem('refresh_token')
   if (refreshToken) {
     try {
-      await apiClient.post('/auth/logout/', { refresh_token: refreshToken })
-    } catch (e) {
-      console.error('Erreur lors de la déconnexion:', e)
+      await apiClient.post('/auth/logout/', { refresh: refreshToken })
+    } catch {
+      // Jeton déjà expiré ou révoqué : la déconnexion locale suffit.
     }
   }
   apiClient.clearToken()
-}
-
-export async function refreshToken(): Promise<AuthResponse> {
-  const refreshToken = localStorage.getItem('refresh_token')
-  const response = await apiClient.post<AuthResponse>('/auth/token/refresh/', {
-    refresh: refreshToken,
-  })
-  apiClient.setToken(response.access)
-  return response
 }
 
 export async function getUserProfile(): Promise<UserProfile> {

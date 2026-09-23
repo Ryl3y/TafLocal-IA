@@ -10,11 +10,11 @@ from django.utils.translation import gettext_lazy as _
 
 class NotificationType(models.TextChoices):
     """Énumération des types de notification (correspond au PostgreSQL ENUM notification_type)."""
-    APPLICATION = "APPLICATION", _("Application")
-    INTERVIEW = "INTERVIEW", _("Interview")
-    JOB = "JOB", _("Job")
-    SYSTEM = "SYSTEM", _("System")
-    PROFILE = "PROFILE", _("Profile")
+    APPLICATION = "APPLICATION", _("Candidature")
+    INTERVIEW = "INTERVIEW", _("Entretien")
+    JOB = "JOB", _("Offre")
+    SYSTEM = "SYSTEM", _("Système")
+    PROFILE = "PROFILE", _("Profil")
 
 
 class Notification(models.Model):

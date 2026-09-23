@@ -8,10 +8,10 @@ from django.utils.translation import gettext_lazy as _
 
 class AnalysisStatus(models.TextChoices):
     """Énumération des statuts d'analyse."""
-    PENDING = "PENDING", _("Pending")
-    PROCESSING = "PROCESSING", _("Processing")
-    COMPLETED = "COMPLETED", _("Completed")
-    FAILED = "FAILED", _("Failed")
+    PENDING = "PENDING", _("En attente")
+    PROCESSING = "PROCESSING", _("En cours")
+    COMPLETED = "COMPLETED", _("Terminée")
+    FAILED = "FAILED", _("Échec")
 
 
 class CV(models.Model):

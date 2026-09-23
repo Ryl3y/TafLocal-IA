@@ -1,2 +1,1 @@
-// TODO: Implement custom hooks (useAuth, useMediaQuery, useDebounce, etc.)
-export {}
+export { useApiData } from './useApiData'

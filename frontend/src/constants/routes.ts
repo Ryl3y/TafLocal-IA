@@ -19,6 +19,7 @@ export const ROUTES = {
   RECOMMENDED_JOBS: '/jobs/recommended',
   JOB_DETAILS: '/jobs/:jobId',
   APPLY: '/jobs/:jobId/apply',
+  MY_APPLICATIONS: '/applications',
   INTERVIEW_ROOT: '/interview',
   INTERVIEW: '/interview/:sessionId',
   INTERVIEW_FEEDBACK: '/interview/:sessionId/feedback',

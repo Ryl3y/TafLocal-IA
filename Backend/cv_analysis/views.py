@@ -90,12 +90,13 @@ class CVViewSet(viewsets.ModelViewSet):
         http_status = status.HTTP_200_OK if analysis.status == "COMPLETED" else status.HTTP_422_UNPROCESSABLE_ENTITY
         return Response(CVAnalysisSerializer(analysis, context={"request": request}).data, status=http_status)
 
-    @extend_schema(responses=OpenApiResponse(description="Dernière analyse du candidat connecté"))
+    @extend_schema(responses={200: CVAnalysisSerializer, 204: OpenApiResponse(description="Aucun CV analysé")})
     @action(detail=False, methods=["get"])
     def latest(self, request):
         cv = self.get_queryset().filter(analysis__isnull=False).order_by("-uploaded_at").first()
         if cv is None:
-            return Response({"detail": "Aucun CV analysé."}, status=status.HTTP_404_NOT_FOUND)
+            # Situation normale pour un nouveau candidat : pas d'erreur, pas de contenu.
+            return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(CVAnalysisSerializer(cv.analysis, context={"request": request}).data)
 
 

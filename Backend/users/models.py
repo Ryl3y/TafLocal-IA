@@ -48,9 +48,9 @@ class UserManager(BaseUserManager):
 
 class UserRole(models.TextChoices):
     """Énumération des rôles utilisateur."""
-    ADMIN = "ADMIN", _("Admin")
-    CANDIDATE = "CANDIDATE", _("Candidate")
-    COMPANY = "COMPANY", _("Company")
+    ADMIN = "ADMIN", _("Administrateur")
+    CANDIDATE = "CANDIDATE", _("Candidat")
+    COMPANY = "COMPANY", _("Entreprise")
 
 
 class User(AbstractBaseUser, PermissionsMixin):

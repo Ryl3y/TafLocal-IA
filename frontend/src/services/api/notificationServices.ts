@@ -1,41 +1,38 @@
 /**
- * Notification services for TafLocal AI backend.
+ * Services de notifications (champs alignés sur le modèle Django).
  */
 
-import { apiClient } from './apiClient'
+import { apiClient, buildQuery, unwrapList, type Paginated } from './apiClient'
 
 export interface Notification {
-  id: number
-  user: number
-  type: string
-  title: string
+  id: string
+  user: string
+  type: 'APPLICATION' | 'INTERVIEW' | 'JOB' | 'SYSTEM' | 'PROFILE'
+  type_display: string
+  titre: string
   message: string
-  data: Record<string, any>
-  is_read: boolean
-  created_at: string
-  updated_at: string
+  lu: boolean
+  date_envoi: string
 }
 
-export async function getNotifications(): Promise<Notification[]> {
-  return apiClient.get<Notification[]>('/notifications/')
+export async function getNotifications(filters?: { lu?: boolean }): Promise<Notification[]> {
+  return unwrapList(
+    await apiClient.get<Notification[] | Paginated<Notification>>(`/notifications/${buildQuery(filters)}`),
+  )
 }
 
-export async function getNotification(id: number): Promise<Notification> {
-  return apiClient.get<Notification>(`/notifications/${id}/`)
+export function markAsRead(id: string): Promise<Notification> {
+  return apiClient.post<Notification>(`/notifications/${id}/mark_read/`)
 }
 
-export async function markAsRead(id: number): Promise<Notification> {
-  return apiClient.patch<Notification>(`/notifications/${id}/`, { is_read: true })
-}
-
-export async function markAllAsRead(): Promise<void> {
+export function markAllAsRead(): Promise<{ message: string; updated: number }> {
   return apiClient.post('/notifications/mark_all_read/')
 }
 
-export async function getUnreadCount(): Promise<{ count: number }> {
-  return apiClient.get<{ count: number }>('/notifications/unread_count/')
+export function getUnreadCount(): Promise<{ unread_count: number }> {
+  return apiClient.get<{ unread_count: number }>('/notifications/unread_count/')
 }
 
-export async function deleteNotification(id: number): Promise<void> {
+export function deleteNotification(id: string): Promise<void> {
   return apiClient.delete(`/notifications/${id}/`)
 }

@@ -13,17 +13,17 @@ class ContractType(models.TextChoices):
     CDI = "CDI", _("CDI")
     CDD = "CDD", _("CDD")
     FREELANCE = "FREELANCE", _("Freelance")
-    INTERNSHIP = "INTERNSHIP", _("Internship")
-    APPRENTICESHIP = "APPRENTICESHIP", _("Apprenticeship")
+    INTERNSHIP = "INTERNSHIP", _("Stage")
+    APPRENTICESHIP = "APPRENTICESHIP", _("Alternance")
 
 
 class JobStatus(models.TextChoices):
     """Énumération des statuts d'emploi (correspond au PostgreSQL ENUM job_status)."""
-    DRAFT = "DRAFT", _("Draft")
-    PUBLISHED = "PUBLISHED", _("Published")
-    CLOSED = "CLOSED", _("Closed")
-    ARCHIVED = "ARCHIVED", _("Archived")
-    EXPIRED = "EXPIRED", _("Expired")
+    DRAFT = "DRAFT", _("Brouillon")
+    PUBLISHED = "PUBLISHED", _("Publiée")
+    CLOSED = "CLOSED", _("Clôturée")
+    ARCHIVED = "ARCHIVED", _("Archivée")
+    EXPIRED = "EXPIRED", _("Expirée")
 
 
 class Job(models.Model):
