@@ -7,10 +7,10 @@ export interface FooterProps {
 }
 
 const footerLinks = [
-  { label: 'À propos', href: '#' },
-  { label: 'Confidentialité', href: '#' },
-  { label: 'Conditions', href: '#' },
-  { label: 'Contact', href: '#' },
+  { label: 'À propos', to: ROUTES.ABOUT },
+  { label: 'Confidentialité', to: ROUTES.PRIVACY },
+  { label: 'Conditions', to: ROUTES.TERMS },
+  { label: 'Contact', to: ROUTES.CONTACT },
 ] as const
 
 /**
@@ -20,7 +20,7 @@ export function Footer({ className }: FooterProps) {
   return (
     <footer
       className={cn(
-        'flex h-footer shrink-0 flex-col items-center justify-center gap-2 border-t border-border bg-surface px-4 py-2 text-sm text-muted sm:flex-row sm:justify-between',
+        'flex shrink-0 flex-col items-center justify-center gap-2 border-t border-border bg-surface px-4 py-3 text-sm text-muted sm:h-footer sm:flex-row sm:justify-between sm:py-2',
         className,
       )}
       role="contentinfo"
@@ -33,13 +33,13 @@ export function Footer({ className }: FooterProps) {
       </span>
       <nav className="flex flex-wrap justify-center gap-4" aria-label="Liens du pied de page">
         {footerLinks.map((link) => (
-          <a
+          <Link
             key={link.label}
-            href={link.href}
+            to={link.to}
             className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:rounded"
           >
             {link.label}
-          </a>
+          </Link>
         ))}
       </nav>
     </footer>

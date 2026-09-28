@@ -8,6 +8,8 @@ export interface AuthUser {
   role: Role
   avatar?: string
   createdAt: string
+  /** Sessions ouvertes, inscription comprise : 1 = première visite (message de bienvenue). */
+  loginCount: number
 }
 
 export interface LoginCredentials {
@@ -23,6 +25,10 @@ export interface RegisterCredentials {
   lastName: string
   role: Role
   companyName?: string
+  /** Numéro de registre de commerce (RCCM), obligatoire pour une entreprise. */
+  registreCommerce?: string
+  /** Certificat RCCM (PDF), obligatoire pour une entreprise. */
+  documentRccm?: File | null
 }
 
 export interface ForgotPasswordRequest {
@@ -43,8 +49,9 @@ export interface AuthResponse {
 
 export interface AuthState {
   user: AuthUser | null
-  token: string | null
   isAuthenticated: boolean
+  /** Vérification de la session auprès du serveur en cours (au chargement de l'application). */
+  isInitializing: boolean
   isLoading: boolean
   error: string | null
 }

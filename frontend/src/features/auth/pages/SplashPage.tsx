@@ -31,12 +31,6 @@ const highlights = [
   },
 ]
 
-const stats = [
-  { label: 'Taux de matching', value: '+82%' },
-  { label: 'Temps d’analyse', value: '2 min' },
-  { label: 'Entretiens préparés', value: '4.8k+' },
-]
-
 export function SplashPage() {
   return (
     <PageShell
@@ -45,11 +39,8 @@ export function SplashPage() {
       description="Un assistant de carrière premium pour analyser votre CV, découvrir des missions pertinentes et préparer vos entretiens avec confiance."
       actions={
         <>
-          <Link to={ROUTES.AUTH}>
+          <Link to={ROUTES.REGISTER}>
             <Button>Commencer gratuitement</Button>
-          </Link>
-          <Link to={ROUTES.DASHBOARD}>
-            <Button variant="outline">Voir la démo</Button>
           </Link>
         </>
       }
@@ -70,15 +61,6 @@ export function SplashPage() {
             <Badge variant="secondary">Offres qualifiées</Badge>
             <Badge variant="accent">Interview coaching</Badge>
           </div>
-
-          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {stats.map((stat) => (
-              <div key={stat.label} className="rounded-xl border border-border bg-surface/90 p-4 shadow-sm">
-                <p className="text-2xl font-semibold text-primary">{stat.value}</p>
-                <p className="mt-1 text-sm text-muted">{stat.label}</p>
-              </div>
-            ))}
-          </div>
         </Card>
 
         <Card padding="lg" className="bg-surface w-full">
@@ -93,13 +75,13 @@ export function SplashPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border border-primary/20 bg-primary-light/40 p-4">
-              <p className="text-sm font-semibold text-foreground">“Votre profil montre une forte progression en data et product.”</p>
-              <p className="mt-2 text-sm text-muted">Recommandation prioritaire : renforcer votre preuve de leadership sur 2 projets récents.</p>
+              <p className="text-sm font-semibold text-foreground">Vos recommandations apparaîtront ici.</p>
+              <p className="mt-2 text-sm text-muted">Déposez votre CV : l’IA identifie vos points forts et les compétences à renforcer.</p>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-border p-4">
               <div>
                 <p className="font-medium text-foreground">Prêt à passer à l’action ?</p>
-                <p className="text-sm text-muted">Créez votre espace en moins de 2 minutes.</p>
+                <p className="text-sm text-muted">Créez votre espace en quelques instants.</p>
               </div>
               <ArrowRight className="h-5 w-5 text-primary" />
             </div>

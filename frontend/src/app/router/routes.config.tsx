@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- fichier de configuration des routes (pas de HMR requis) */
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, type RouteObject } from 'react-router-dom'
 import { ROLES, ROUTES } from '../../constants'
@@ -9,12 +10,12 @@ import {
   CompanyLayout,
   DashboardLayout,
   EmptyLayout,
-  MainLayout,
 } from '../layouts'
 
 // Lazy-loaded page components
 const LandingPage = lazy(() => import('../../features/landing/LandingPage'))
 const AuthPage = lazy(() => import('../../features/auth/pages/AuthPage'))
+const ForgotPasswordPage = lazy(() => import('../../features/auth/pages/ForgotPasswordPage'))
 const DashboardPage = lazy(() => import('../../features/dashboard/pages/DashboardPage'))
 const CVAnalysisPage = lazy(() => import('../../features/cv-analysis/pages/CVAnalysisPage'))
 const AnalysisResultPage = lazy(() => import('../../features/cv-analysis/pages/AnalysisResultPage'))
@@ -22,6 +23,7 @@ const JobsListPage = lazy(() => import('../../features/jobs/pages/JobsListPage')
 const RecommendedJobsPage = lazy(() => import('../../features/jobs/pages/RecommendedJobsPage'))
 const JobDetailsPage = lazy(() => import('../../features/jobs/pages/JobDetailsPage'))
 const ApplyPage = lazy(() => import('../../features/applications/pages/ApplyPage'))
+const MyApplicationsPage = lazy(() => import('../../features/applications/pages/MyApplicationsPage'))
 const InterviewPage = lazy(() => import('../../features/interview/pages/InterviewPage'))
 const InterviewFeedbackPage = lazy(() => import('../../features/interview/pages/InterviewFeedbackPage'))
 const ProfilePage = lazy(() => import('../../features/profile/pages/ProfilePage'))
@@ -33,6 +35,10 @@ const JobFormPage = lazy(() => import('../../features/company/pages/JobFormPage'
 const CompanyApplicationsPage = lazy(() => import('../../features/company/pages/CompanyApplicationsPage'))
 const CompanyProfilePage = lazy(() => import('../../features/company/pages/CompanyProfilePage'))
 const AdminDashboardPage = lazy(() => import('../../features/admin/pages/AdminDashboardPage'))
+const AboutPage = lazy(() => import('../../features/info/pages/AboutPage'))
+const PrivacyPage = lazy(() => import('../../features/info/pages/PrivacyPage'))
+const TermsPage = lazy(() => import('../../features/info/pages/TermsPage'))
+const ContactPage = lazy(() => import('../../features/info/pages/ContactPage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 
 /** Wraps lazy routes with a loading fallback */
@@ -64,14 +70,19 @@ function SplashRoute() {
  * Centralized route configuration grouped by layout.
  */
 export const appRoutes: RouteObject[] = [
-  // Public — Main layout
+  // Public — la landing page fournit son propre en-tête et pied de page
   {
-    element: <MainLayout />,
+    element: <EmptyLayout />,
     children: [
       {
         path: ROUTES.SPLASH,
         element: withSuspense(<SplashRoute />),
       },
+      // Pages d'information : leur propre en-tête et pied de page, sans redirection si connecté
+      { path: ROUTES.ABOUT, element: withSuspense(<AboutPage />) },
+      { path: ROUTES.PRIVACY, element: withSuspense(<PrivacyPage />) },
+      { path: ROUTES.TERMS, element: withSuspense(<TermsPage />) },
+      { path: ROUTES.CONTACT, element: withSuspense(<ContactPage />) },
     ],
   },
 
@@ -86,6 +97,10 @@ export const appRoutes: RouteObject[] = [
       {
         path: ROUTES.AUTH,
         element: withSuspense(<AuthPage />),
+      },
+      {
+        path: ROUTES.FORGOT_PASSWORD,
+        element: withSuspense(<ForgotPasswordPage />),
       },
     ],
   },
@@ -141,8 +156,12 @@ export const appRoutes: RouteObject[] = [
         element: withSuspense(<ApplyPage />),
       },
       {
+        path: ROUTES.MY_APPLICATIONS,
+        element: withSuspense(<MyApplicationsPage />),
+      },
+      {
         path: ROUTES.INTERVIEW_ROOT,
-        element: <Navigate to={ROUTES.INTERVIEW.replace(':sessionId', 'demo-session')} replace />,
+        element: <Navigate to={ROUTES.INTERVIEW.replace(':sessionId', 'new')} replace />,
       },
       {
         path: ROUTES.INTERVIEW,

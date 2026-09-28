@@ -13,7 +13,7 @@ class PhoneNumberValidator:
     """Validate phone number format."""
 
     def __call__(self, value):
-        if not re.match(r'^\+?[\d\s-()]{10,20}$', value):
+        if not re.match(r'^\+?[\d\s()\-]{8,20}$', value):
             raise ValidationError(_("Please enter a valid phone number."))
 
 

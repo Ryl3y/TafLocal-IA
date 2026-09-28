@@ -6,7 +6,19 @@ export const ROUTES = {
   ROOT: '/',
   SPLASH: '/',
   AUTH: '/auth',
+  /** Page d'authentification ouverte directement sur le formulaire d'inscription (lien, pas une route). */
+  REGISTER: '/auth?mode=register',
+  /** Inscription directement sur le formulaire candidat / entreprise (sans l'étape de choix). */
+  REGISTER_CANDIDATE: '/auth?mode=register&type=candidat',
+  REGISTER_COMPANY: '/auth?mode=register&type=entreprise',
   LOGIN: '/login',
+  FORGOT_PASSWORD: '/forgot-password',
+
+  // Pages d'information (pied de page), accessibles connecté ou non
+  ABOUT: '/a-propos',
+  PRIVACY: '/confidentialite',
+  TERMS: '/conditions',
+  CONTACT: '/contact',
 
   // Candidate routes
   CANDIDATE_ROOT: '/candidate',
@@ -19,6 +31,7 @@ export const ROUTES = {
   RECOMMENDED_JOBS: '/jobs/recommended',
   JOB_DETAILS: '/jobs/:jobId',
   APPLY: '/jobs/:jobId/apply',
+  MY_APPLICATIONS: '/applications',
   INTERVIEW_ROOT: '/interview',
   INTERVIEW: '/interview/:sessionId',
   INTERVIEW_FEEDBACK: '/interview/:sessionId/feedback',

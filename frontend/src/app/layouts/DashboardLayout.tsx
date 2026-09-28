@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Footer, MobileNav, Navbar, Sidebar } from '../../components/navigation'
+import { BottomNav, Footer, MobileNav, Navbar, Sidebar } from '../../components/navigation'
 
 export function DashboardLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -16,14 +16,16 @@ export function DashboardLayout() {
 
       <div className="layout-body">
         {/* Sidebar hidden on mobile, visible on large screens */}
-        <Sidebar variant="candidate" className="hidden lg:block" />
+        <Sidebar variant="candidate" className="hidden lg:flex" />
 
-        <main className="layout-main" role="main">
+        {/* pb-24 : laisse la place à la barre d'onglets mobile */}
+        <main className="layout-main pb-24 lg:pb-6" role="main">
           <Outlet />
         </main>
       </div>
 
-      <Footer />
+      <Footer className="hidden lg:flex" />
+      <BottomNav />
     </div>
   )
 }

@@ -1,97 +1,111 @@
 /**
- * Interview services for TafLocal AI backend.
+ * Services de simulation d'entretien (moteur IA interne).
  */
 
-import { apiClient } from './apiClient'
+import { apiClient, buildQuery, unwrapList, type Paginated } from './apiClient'
+import type { Job } from './jobsService'
 
-export interface InterviewSession {
-  id: number
-  candidate: number
-  job: number
-  status: string
-  scheduled_at: string
-  started_at?: string
-  completed_at?: string
-  created_at: string
-  updated_at: string
+export type InterviewType = 'MIXED' | 'TECHNICAL' | 'BEHAVIORAL' | 'HR'
+
+export interface AnswerEvaluation {
+  score: number
+  criteres: Record<string, number>
+  points_forts: string[]
+  axes_amelioration: string[]
+  commentaire: string
+  mots_cles_trouves: string[]
+  mots_cles_manquants: string[]
 }
 
 export interface InterviewQuestion {
-  id: number
-  session: number
-  question_text: string
-  question_type: string
-  category: string
-  order: number
-}
-
-export interface InterviewAnswer {
-  id: number
-  question: number
-  answer_text: string
-  answered_at: string
+  id: string
+  session: string
+  question: string
+  type_question: string
+  categorie: 'RH' | 'COMPORTEMENTAL' | 'TECHNIQUE' | null
+  competence: string | null
+  reponse: string | null
+  score: string | number | null
+  evaluation: AnswerEvaluation | Record<string, never>
+  ordre: number
 }
 
 export interface InterviewFeedback {
-  id: number
-  session: number
-  communication_score: number
-  technical_score: number
-  problem_solving_score: number
-  cultural_fit_score: number
-  overall_score: number
-  strengths: string[]
-  areas_for_improvement: string[]
-  detailed_feedback: string
-  recommendation: string
+  id: string
+  score_global: string | number | null
+  points_forts: string[]
+  points_faibles: string[]
+  conseils: string[]
+  scores_par_categorie: Record<string, number>
+  date_feedback: string
+}
+
+export interface InterviewSession {
+  id: string
+  candidate: string
+  candidat_nom: string
+  offre: Job | null
+  date_session: string | null
+  type_entretien: InterviewType
+  type_entretien_display: string
+  duree: number | null
+  score_global: string | number | null
+  statut: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'FAILED'
+  statut_display: string
+  progression: { repondues: number; total: number }
+  questions: InterviewQuestion[]
+  feedback: InterviewFeedback | null
   created_at: string
 }
 
-export async function createInterviewSession(jobId: number): Promise<InterviewSession> {
-  return apiClient.post<InterviewSession>('/interviews/sessions/', {
-    job: jobId,
-  })
+export const INTERVIEW_TYPES: { value: InterviewType; label: string; description: string }[] = [
+  { value: 'MIXED', label: 'Mixte', description: 'Motivation, questions techniques et comportementales.' },
+  { value: 'TECHNICAL', label: 'Technique', description: 'Centré sur les compétences exigées par le poste.' },
+  { value: 'BEHAVIORAL', label: 'Comportemental', description: 'Mises en situation (méthode STAR).' },
+  { value: 'HR', label: 'RH', description: 'Motivation, projet professionnel, prétentions.' },
+]
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  RH: 'Motivation',
+  COMPORTEMENTAL: 'Comportemental',
+  TECHNIQUE: 'Technique',
+  AUTRE: 'Autre',
 }
 
-export async function getInterviewSessions(): Promise<InterviewSession[]> {
-  return apiClient.get<InterviewSession[]>('/interviews/sessions/')
+export function createInterviewSession(data: {
+  /** Offre à laquelle le candidat a postulé (obligatoire). */
+  offre: string
+  type_entretien?: InterviewType
+  nombre_questions?: number
+}): Promise<InterviewSession> {
+  return apiClient.post<InterviewSession>('/interviews/sessions/', data)
 }
 
-export async function getInterviewSession(id: number): Promise<InterviewSession> {
+export async function getInterviewSessions(filters?: { statut?: string }): Promise<InterviewSession[]> {
+  return unwrapList(
+    await apiClient.get<InterviewSession[] | Paginated<InterviewSession>>(`/interviews/sessions/${buildQuery(filters)}`),
+  )
+}
+
+export function getInterviewSession(id: string): Promise<InterviewSession> {
   return apiClient.get<InterviewSession>(`/interviews/sessions/${id}/`)
 }
 
-export async function startInterviewSession(sessionId: number): Promise<InterviewSession> {
-  return apiClient.post<InterviewSession>(`/interviews/sessions/${sessionId}/start/`)
+export function startInterviewSession(id: string): Promise<InterviewSession> {
+  return apiClient.post<InterviewSession>(`/interviews/sessions/${id}/start/`)
 }
 
-export async function completeInterviewSession(sessionId: number): Promise<InterviewSession> {
-  return apiClient.post<InterviewSession>(`/interviews/sessions/${sessionId}/complete/`)
-}
-
-export async function generateQuestions(sessionId: number): Promise<InterviewQuestion[]> {
-  return apiClient.post<InterviewQuestion[]>(`/interviews/sessions/${sessionId}/generate_questions/`)
-}
-
-export async function getQuestions(sessionId: number): Promise<InterviewQuestion[]> {
-  return apiClient.get<InterviewQuestion[]>(`/interviews/questions/?session=${sessionId}`)
-}
-
-export async function submitAnswer(questionId: number, answerText: string): Promise<InterviewAnswer> {
-  return apiClient.post<InterviewAnswer>('/interviews/answers/', {
-    question: questionId,
-    answer_text: answerText,
+export function submitAnswer(sessionId: string, questionId: string, reponse: string): Promise<InterviewQuestion> {
+  return apiClient.post<InterviewQuestion>(`/interviews/sessions/${sessionId}/answer/`, {
+    question_id: questionId,
+    reponse,
   })
 }
 
-export async function getAnswers(sessionId: number): Promise<InterviewAnswer[]> {
-  return apiClient.get<InterviewAnswer[]>(`/interviews/answers/?question__session=${sessionId}`)
+export function completeInterviewSession(id: string): Promise<InterviewFeedback> {
+  return apiClient.post<InterviewFeedback>(`/interviews/sessions/${id}/complete/`)
 }
 
-export async function generateFeedback(sessionId: number): Promise<InterviewFeedback> {
-  return apiClient.post<InterviewFeedback>(`/interviews/sessions/${sessionId}/generate_feedback/`)
-}
-
-export async function getFeedback(sessionId: number): Promise<InterviewFeedback> {
-  return apiClient.get<InterviewFeedback>(`/interviews/sessions/${sessionId}/feedback/`)
+export function deleteInterviewSession(id: string): Promise<void> {
+  return apiClient.delete(`/interviews/sessions/${id}/`)
 }

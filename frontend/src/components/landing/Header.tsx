@@ -6,42 +6,36 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/60">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
-          <Link to={ROUTES.ROOT} className="flex items-center space-x-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-white">TL</span>
+          <Link to={ROUTES.ROOT} className="flex shrink-0 items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary sm:h-10 sm:w-10">
+              <span className="text-base font-bold text-white sm:text-lg">TL</span>
             </div>
-            <span className="text-xl font-bold text-foreground">TafLocal AI</span>
+            <span className="whitespace-nowrap text-lg font-bold text-foreground sm:text-xl">TafLocal AI</span>
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link to={ROUTES.ROOT} className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Accueil
-            </Link>
-            <Link to="#how-it-works" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
+          <nav className="hidden items-center gap-8 lg:flex">
+            <a href="#how-it-works" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
               Comment ça marche
-            </Link>
-            <Link to="#features" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
+            </a>
+            <a href="#features" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
               Fonctionnalités
-            </Link>
-            <Link to="#companies" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
-              Entreprises
-            </Link>
-            <Link to="#faq" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
+            </a>
+            <a href="#faq" className="text-sm font-medium text-muted hover:text-foreground transition-colors">
               FAQ
-            </Link>
+            </a>
           </nav>
 
           {/* CTA Buttons */}
-          <div className="flex items-center space-x-4">
-            <Link to={ROUTES.AUTH}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link to={ROUTES.AUTH} className="hidden sm:block">
               <Button variant="ghost" size="sm">
                 Connexion
               </Button>
             </Link>
-            <Link to={ROUTES.AUTH}>
+            <Link to={ROUTES.REGISTER}>
               <Button size="sm">
                 Créer un compte
               </Button>

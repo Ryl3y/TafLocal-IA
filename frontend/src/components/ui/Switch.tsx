@@ -30,9 +30,9 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
         />
         <span
           className={cn(
-            'relative inline-flex h-6 w-11 rounded-full border border-border bg-background transition-colors duration-200',
+            'relative inline-flex h-6 w-11 rounded-full border border-border bg-field transition-colors duration-200',
             'group-hover:border-primary/40',
-            'peer-checked:border-secondary peer-checked:bg-secondary',
+            'peer-checked:border-primary peer-checked:bg-primary',
             'peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 peer-focus-visible:ring-offset-2',
             'peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
           )}

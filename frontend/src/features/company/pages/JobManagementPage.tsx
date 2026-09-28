@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Edit2, Trash2, Users, Archive, CheckCircle } from 'lucide-react'
 import { PageShell } from '../../../components/common'
@@ -7,7 +7,8 @@ import { EmptyState } from '../../../components/feedback/EmptyState'
 import { Loader } from '../../../components/feedback/Loader'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
-import { jobsService, JOB_STATUSES, type Job } from '../../../services/api/jobsService'
+import { useApiData } from '../../../hooks'
+import { jobsService, JOB_STATUSES } from '../../../services/api/jobsService'
 import { ROUTES } from '../../../constants/routes'
 
 function getStatusVariant(statut: string): 'secondary' | 'outline' | 'accent' {
@@ -18,26 +19,17 @@ function getStatusVariant(statut: string): 'secondary' | 'outline' | 'accent' {
 
 export function JobManagementPage() {
   const navigate = useNavigate()
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
+  const { data: jobs = [], isLoading, error: loadError, reload } = useApiData(
+    () => jobsService.getJobs({ ordering: '-date_publication' }),
+    [],
+    'Impossible de charger vos offres.',
+  )
+  const [actionError, setErrorMessage] = useState<string | null>(null)
+  const errorMessage = actionError ?? loadError
   const loadJobs = async () => {
-    try {
-      setIsLoading(true)
-      const data = await jobsService.getJobs({ ordering: '-date_publication' })
-      setJobs(data)
-      setErrorMessage(null)
-    } catch {
-      setErrorMessage('Impossible de charger vos offres.')
-    } finally {
-      setIsLoading(false)
-    }
+    setErrorMessage(null)
+    reload()
   }
-
-  useEffect(() => {
-    loadJobs()
-  }, [])
 
   const handleArchive = async (id: string) => {
     try {

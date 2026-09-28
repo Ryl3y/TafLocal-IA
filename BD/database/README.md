@@ -1,5 +1,14 @@
 # TafLocal AI - PostgreSQL Database
 
+> **⚠️ Ne pas exécuter ces scripts sur la base de l'application.**
+> Le schéma utilisé par le backend est créé **uniquement** par les migrations Django
+> (`cd Backend && python manage.py migrate`). Les scripts de `schema/` sont un modèle
+> de conception : leurs types de colonnes, leurs `ENUM` et leurs triggers (notifications,
+> blocage des modifications de `feedback_ia`…) ne correspondent pas aux modèles Django et
+> cassent l'analyse de CV, les entretiens et la suppression des comptes. `009_demo_data.sql`
+> crée en outre un compte administrateur au mot de passe public.
+> Pour des données de démonstration, utilisez `python manage.py seed_demo`.
+
 ## Description
 
 Base de données PostgreSQL pour TafLocal AI, une plateforme d'assistant de carrière alimentée par l'IA.

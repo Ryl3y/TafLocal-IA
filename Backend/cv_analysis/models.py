@@ -2,16 +2,28 @@
 Modèles d'analyse de CV pour TafLocal AI.
 """
 
+import os
+import uuid
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+from common.storage import private_storage
+
+
+def cv_upload_path(instance, filename):
+    """Nom aléatoire : le nom d'origine (« CV Jean Dupont.pdf ») n'apparaît jamais sur le disque."""
+    extension = os.path.splitext(filename)[1].lower()[:10]
+    return f"cvs/{uuid.uuid4().hex}{extension}"
 
 
 class AnalysisStatus(models.TextChoices):
     """Énumération des statuts d'analyse."""
-    PENDING = "PENDING", _("Pending")
-    PROCESSING = "PROCESSING", _("Processing")
-    COMPLETED = "COMPLETED", _("Completed")
-    FAILED = "FAILED", _("Failed")
+    PENDING = "PENDING", _("En attente")
+    PROCESSING = "PROCESSING", _("En cours")
+    COMPLETED = "COMPLETED", _("Terminée")
+    FAILED = "FAILED", _("Échec")
+    NO_OFFERS = "NO_OFFERS", _("Aucune offre à comparer")
 
 
 class CV(models.Model):
@@ -19,7 +31,8 @@ class CV(models.Model):
 
     id = models.BigAutoField(primary_key=True, verbose_name='ID')
     candidate = models.ForeignKey("users.CandidateProfile", on_delete=models.CASCADE, related_name="cvs")
-    file = models.FileField(upload_to='cvs/')
+    # Données personnelles : stockage privé, jamais servi par /media/ (lecture via une vue contrôlée).
+    file = models.FileField(storage=private_storage, upload_to=cv_upload_path, max_length=255)
     file_name = models.CharField(max_length=255)
     file_size = models.IntegerField()
     file_type = models.CharField(max_length=50)
@@ -47,6 +60,12 @@ class CVAnalysis(models.Model):
     strengths = models.JSONField(blank=True, default=list)
     weaknesses = models.JSONField(blank=True, default=list)
     recommendations_data = models.JSONField(blank=True, default=list)
+    score_details = models.JSONField(blank=True, default=dict)
+    summary = models.TextField(blank=True, default="")
+    experience_years = models.FloatField(blank=True, null=True)
+    education_level = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=AnalysisStatus.choices, default=AnalysisStatus.COMPLETED)
+    error_message = models.TextField(blank=True, default="")
     analyzed_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

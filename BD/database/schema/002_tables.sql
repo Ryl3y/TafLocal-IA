@@ -24,7 +24,7 @@ CREATE TYPE contract_type AS ENUM ('CDI', 'CDD', 'FREELANCE', 'INTERNSHIP', 'APP
 CREATE TYPE job_status AS ENUM ('DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED', 'EXPIRED');
 
 -- CV analysis status
-CREATE TYPE analysis_status AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+CREATE TYPE analysis_status AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'NO_OFFERS');
 
 -- Interview type
 CREATE TYPE interview_type AS ENUM ('TECHNICAL', 'BEHAVIORAL', 'MIXED', 'HR');
@@ -49,6 +49,7 @@ CREATE TABLE utilisateur (
     mot_de_passe VARCHAR(255) NOT NULL,
     telephone VARCHAR(20),
     date_inscription TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    nombre_connexions INTEGER NOT NULL DEFAULT 0 CHECK (nombre_connexions >= 0),
     is_active BOOLEAN DEFAULT TRUE,
     role user_role NOT NULL DEFAULT 'CANDIDATE',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +67,7 @@ COMMENT ON COLUMN utilisateur.email IS 'Adresse email unique de l''utilisateur';
 COMMENT ON COLUMN utilisateur.mot_de_passe IS 'Mot de passe hashé de l''utilisateur';
 COMMENT ON COLUMN utilisateur.telephone IS 'Numéro de téléphone de l''utilisateur';
 COMMENT ON COLUMN utilisateur.date_inscription IS 'Date d''inscription de l''utilisateur';
+COMMENT ON COLUMN utilisateur.nombre_connexions IS 'Sessions ouvertes (inscription comprise) : 1 = première visite';
 COMMENT ON COLUMN utilisateur.is_active IS 'Indicateur d''activation du compte';
 COMMENT ON COLUMN utilisateur.role IS 'Rôle de l''utilisateur (ADMIN, CANDIDATE, COMPANY)';
 COMMENT ON COLUMN utilisateur.created_at IS 'Date de création de l''enregistrement';

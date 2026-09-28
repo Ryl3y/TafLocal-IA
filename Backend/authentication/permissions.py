@@ -3,7 +3,7 @@ Permissions personnalisées pour TafLocal AI.
 """
 
 from rest_framework import permissions
-from users.models import User, UserRole
+from users.models import UserRole
 
 
 class IsAdmin(permissions.BasePermission):

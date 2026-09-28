@@ -1,6 +1,6 @@
 import { type TextareaHTMLAttributes, forwardRef } from 'react'
 import { cn } from '../../utils/cn'
-import { disabledState, focusRing } from './styles'
+import { disabledState } from './styles'
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   hasError?: boolean
@@ -14,13 +14,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         rows={rows}
         disabled={disabled}
         className={cn(
-          'w-full resize-y rounded-lg border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted',
-          focusRing,
+          'w-full resize-y rounded-lg border bg-field px-4 py-3 text-sm leading-6 text-foreground placeholder:text-muted',
+          'focus-visible:bg-surface focus-visible:outline-none focus-visible:ring-4',
           disabledState,
-          'transition-colors duration-200 hover:border-primary/30',
+          'transition-colors duration-200',
           hasError
-            ? 'border-error focus-visible:ring-error/40'
-            : 'border-border focus-visible:ring-primary/40',
+            ? 'border-error focus-visible:ring-error/20'
+            : 'border-transparent focus-visible:border-primary focus-visible:ring-primary/10',
           className,
         )}
         {...props}

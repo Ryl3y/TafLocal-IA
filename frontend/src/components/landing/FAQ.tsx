@@ -4,7 +4,7 @@ import { useState } from 'react'
 const faqs = [
   {
     question: 'TafLocal AI est-il gratuit ?',
-    answer: 'Oui, TafLocal AI est 100% gratuit pour les candidats. Vous pouvez analyser votre CV, recevoir des recommandations d\'offres et préparer vos entretiens sans aucun coût.',
+    answer: 'Oui, TafLocal AI est entièrement gratuit pour les candidats. Vous pouvez analyser votre CV, recevoir des recommandations d\'offres et préparer vos entretiens sans aucun coût.',
   },
   {
     question: 'Comment fonctionne l\'analyse de CV ?',
@@ -36,9 +36,9 @@ export function FAQ() {
   }
 
   return (
-    <section id="faq" className="py-20 sm:py-32 bg-surface">
+    <section id="faq" className="py-16 sm:py-24 lg:py-32 bg-surface">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
             Questions fréquentes
           </h2>

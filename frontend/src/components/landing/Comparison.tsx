@@ -22,11 +22,11 @@ const taflocalFeatures = [
 
 export function Comparison() {
   return (
-    <section className="py-20 sm:py-32 bg-surface">
+    <section className="py-16 sm:py-24 lg:py-32 bg-surface">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-            Pourquoi TafLocal AI ?
+            Pourquoi TafLocal AI&nbsp;?
           </h2>
           <p className="mt-4 text-lg text-muted max-w-2xl mx-auto">
             Comparez notre approche IA avec les plateformes traditionnelles.
@@ -36,7 +36,7 @@ export function Comparison() {
         <div className="max-w-5xl mx-auto">
           <div className="grid md:grid-cols-2 gap-8">
             {/* Traditional Platforms */}
-            <div className="rounded-xl border border-border bg-background p-8">
+            <div className="rounded-xl border border-border bg-background p-6 sm:p-8">
               <h3 className="text-2xl font-bold text-foreground mb-6">Plateformes traditionnelles</h3>
               <div className="space-y-4">
                 {traditionalFeatures.map((feature, index) => (
@@ -67,8 +67,8 @@ export function Comparison() {
             </div>
 
             {/* TafLocal AI */}
-            <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-secondary/5 p-8 shadow-lg">
-              <div className="flex items-center gap-2 mb-6">
+            <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-secondary/5 p-6 shadow-lg sm:p-8">
+              <div className="flex flex-wrap items-center gap-2 mb-6">
                 <span className="px-3 py-1 rounded-full bg-primary text-white text-sm font-semibold">
                   Recommandé
                 </span>

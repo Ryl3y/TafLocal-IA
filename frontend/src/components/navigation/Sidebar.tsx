@@ -25,6 +25,12 @@ const iconMap = {
   '/settings': NAV_ICONS.settings,
   '/company/dashboard': NAV_ICONS.company,
   '/admin/dashboard': NAV_ICONS.admin,
+  '/jobs/list': NAV_ICONS.jobs,
+  '/applications': NAV_ICONS.cvAnalysis,
+  '/interview': NAV_ICONS.interview,
+  '/company/jobs': NAV_ICONS.jobs,
+  '/company/applications': NAV_ICONS.profile,
+  '/company/profile': NAV_ICONS.company,
 } as const
 
 /**
@@ -36,11 +42,12 @@ export function Sidebar({ className, variant = 'candidate' }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex w-sidebar shrink-0 flex-col border-r border-border bg-surface p-4',
+        'w-sidebar shrink-0 flex-col bg-surface px-4 py-6',
         className,
       )}
       aria-label={`Navigation ${variant}`}
     >
+      <p className="mb-3 px-3 text-xs font-medium uppercase tracking-wider text-muted">Menu</p>
       <nav className="flex flex-col gap-1">
         {routes.map((route) => {
           const Icon = iconMap[route.path as keyof typeof iconMap] ?? NAV_ICONS.dashboard
@@ -51,11 +58,11 @@ export function Sidebar({ className, variant = 'candidate' }: SidebarProps) {
               to={route.path}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200',
-                  'hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                  'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                   isActive
-                    ? 'bg-primary-light text-primary'
-                    : 'text-muted hover:text-foreground',
+                    ? 'bg-primary text-primary-foreground shadow-[0_8px_20px_-10px_var(--color-primary)]'
+                    : 'text-muted hover:bg-field hover:text-foreground',
                 )
               }
             >
