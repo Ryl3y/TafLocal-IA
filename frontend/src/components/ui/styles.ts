@@ -9,8 +9,8 @@ export const disabledState =
 
 export const interactiveBase = `transition-colors duration-200 ${focusRing} ${disabledState}`
 
-export const surfaceBase = 'rounded-xl border border-border bg-surface shadow-sm'
+export const surfaceBase = 'rounded-2xl border border-border/60 bg-surface shadow-sm'
 
-export const hoverLift = 'transition-shadow duration-200 hover:shadow-md'
+export const hoverLift = 'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md'
 
 export const loadingOverlay = 'pointer-events-none relative opacity-70'

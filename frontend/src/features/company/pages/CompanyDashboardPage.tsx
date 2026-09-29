@@ -101,7 +101,7 @@ export function CompanyDashboardPage() {
         </Link>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3 lg:gap-6">
         <Card className="bg-surface">
           <CardHeader>
             <CardTitle>Offres actives</CardTitle>

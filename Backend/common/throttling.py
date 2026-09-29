@@ -1,5 +1,5 @@
 """
-Custom throttling classes for TafLocal AI.
+Classes de limitation de débit (les taux sont définis dans settings.REST_FRAMEWORK).
 """
 
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
@@ -8,22 +8,28 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 class BurstRateThrottle(UserRateThrottle):
     """Burst rate throttle for authenticated users."""
     scope = "burst"
-    rate = "100/min"
 
 
 class SustainedRateThrottle(UserRateThrottle):
     """Sustained rate throttle for authenticated users."""
     scope = "sustained"
-    rate = "1000/hour"
 
 
 class AnonBurstRateThrottle(AnonRateThrottle):
     """Burst rate throttle for anonymous users."""
     scope = "anon_burst"
-    rate = "20/min"
 
 
 class AnonSustainedRateThrottle(AnonRateThrottle):
     """Sustained rate throttle for anonymous users."""
     scope = "anon_sustained"
-    rate = "100/hour"
+
+
+class PasswordResetRateThrottle(AnonRateThrottle):
+    """Limite les demandes de code (évite d'inonder une boîte mail ou de griller le quota SMTP)."""
+    scope = "password_reset"
+
+
+class AIRateThrottle(UserRateThrottle):
+    """Limite dédiée aux endpoints de calcul IA (scoring, génération)."""
+    scope = "ai"

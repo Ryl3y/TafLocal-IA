@@ -10,12 +10,12 @@ from django.utils.translation import gettext_lazy as _
 
 class ApplicationStatus(models.TextChoices):
     """Énumération des statuts de candidature (correspond au PostgreSQL ENUM application_status)."""
-    PENDING = "PENDING", _("Pending")
-    UNDER_REVIEW = "UNDER_REVIEW", _("Under Review")
-    SHORTLISTED = "SHORTLISTED", _("Shortlisted")
-    REJECTED = "REJECTED", _("Rejected")
-    HIRED = "HIRED", _("Hired")
-    WITHDRAWN = "WITHDRAWN", _("Withdrawn")
+    PENDING = "PENDING", _("En attente")
+    UNDER_REVIEW = "UNDER_REVIEW", _("En cours d'examen")
+    SHORTLISTED = "SHORTLISTED", _("Présélectionnée")
+    REJECTED = "REJECTED", _("Refusée")
+    HIRED = "HIRED", _("Retenue")
+    WITHDRAWN = "WITHDRAWN", _("Retirée")
 
 
 class Application(models.Model):
@@ -24,6 +24,12 @@ class Application(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     candidate = models.ForeignKey("users.CandidateProfile", on_delete=models.CASCADE, related_name="applications")
     offre = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="applications")
+    # CV transmis avec la candidature (obligatoire à la création). Conservé même si le candidat
+    # dépose ensuite un autre CV ; PROTECT empêche de supprimer un CV encore joint à une candidature.
+    cv = models.ForeignKey(
+        "cv_analysis.CV", on_delete=models.PROTECT, null=True, blank=True, related_name="applications",
+        verbose_name=_("CV transmis"),
+    )
     date_candidature = models.DateTimeField(auto_now_add=True, verbose_name=_("Date de candidature"))
     statut = models.CharField(
         max_length=20,

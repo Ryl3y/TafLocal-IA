@@ -4,7 +4,7 @@ const steps = [
   {
     number: 1,
     title: 'Créer un compte',
-    description: 'Inscription simple et rapide en moins de 2 minutes.',
+    description: 'Inscription simple et rapide.',
   },
   {
     number: 2,
@@ -35,9 +35,9 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20 sm:py-32 bg-surface">
+    <section id="how-it-works" className="py-16 sm:py-24 lg:py-32 bg-surface">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
             Comment ça marche
           </h2>
@@ -58,7 +58,7 @@ export function HowItWorks() {
                   <span className="text-sm font-bold text-white">{step.number}</span>
                 </div>
 
-                <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+                <div className="rounded-xl border border-border bg-background p-6 pt-8 shadow-sm md:pt-6">
                   <h3 className="text-xl font-semibold text-foreground mb-2">{step.title}</h3>
                   <p className="text-muted">{step.description}</p>
                 </div>

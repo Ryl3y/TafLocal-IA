@@ -1,419 +1,718 @@
 """
-Services IA pour TafLocal AI.
-Intégration avec Google Gemini pour les fonctionnalités IA.
+Services IA de TafLocal IA (couche Django du moteur interne).
+
+Ce module remplace l'ancienne intégration Google Gemini : toutes les
+fonctionnalités (analyse de CV, recommandations, classement des
+candidatures, simulation d'entretien, lettre de motivation) s'exécutent
+localement grâce au paquet ``ai.engine``.
 """
 
 import logging
-import os
-import json
-from typing import Dict, List, Any
-from google import genai
+from datetime import timedelta
+
 from django.conf import settings
+from django.db import transaction
+from django.db.models import Prefetch, Q
+from django.utils import timezone
+
+from .engine import ENGINE_NAME, ENGINE_VERSION
+from .engine.cover_letter import CoverLetterInput, generate_cover_letter
+from .engine.cv_analyzer import NoOffersError, OfferInput, analyze_cv_text
+from .engine.cv_parser import CVParsingError, education_level_from_text, extract_text
+from .engine.interview import evaluate_answer, generate_questions, summarize_session
+from .engine.matching import CandidateData, JobData, compute_match
+from .engine.skills import (
+    SKILL_TAXONOMY,
+    canonical_skill_name,
+    extract_skills,
+    skill_category,
+)
+from .models import MatchResult
 
 logger = logging.getLogger(__name__)
 
-# Configuration de Gemini
-MODEL_NAME = 'gemini-1.5-flash'
-_client = None
 
-def get_genai_client():
-    global _client
-    if _client is None:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        _client = genai.Client(api_key=api_key)
-    return _client
+def engine_settings() -> dict:
+    defaults = {
+        "MATCH_CACHE_TTL": 3600,
+        "INTERVIEW_DEFAULT_QUESTIONS": 6,
+        "MAX_JOBS_SCANNED": 500,
+        "USE_CELERY": False,
+    }
+    return {**defaults, **getattr(settings, "AI_ENGINE", {})}
 
 
-class AIService:
-    """Service IA de base."""
+class AIServiceError(Exception):
+    """Erreur métier remontée à l'API avec un code HTTP explicite."""
+
+    status_code = 400
+
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        if status_code:
+            self.status_code = status_code
+
+
+# --------------------------------------------------------------------------- #
+# Référentiel de compétences
+# --------------------------------------------------------------------------- #
+
+class SkillService:
+    @staticmethod
+    def get_or_create(name: str):
+        from users.models import Skill
+
+        canonical = canonical_skill_name(name)
+        if not canonical:
+            return None
+        skill = Skill.objects.filter(nom__iexact=canonical).first()
+        if skill:
+            return skill
+        return Skill.objects.create(nom=canonical[:100], categorie=skill_category(canonical))
 
     @staticmethod
-    def is_available() -> bool:
-        """Vérifier si le service IA est disponible."""
-        # TODO : Ajouter une vérification réelle de disponibilité du service IA
-        return True
+    def set_job_skills(job, names: list[str]):
+        skills = [s for s in (SkillService.get_or_create(n) for n in names) if s]
+        job.competences_requises.set(skills)
 
     @staticmethod
-    def generate_text(prompt: str, max_tokens: int = 500) -> str:
-        """Générer du texte en utilisant l'IA."""
-        try:
-            response = get_genai_client().models.generate_content(
-                model=MODEL_NAME,
-                contents=prompt
-            )
-            return response.text
-        except Exception as e:
-            logger.error(f"Erreur lors de la génération de texte : {e}")
-            return f"Erreur : {str(e)}"
+    def search(query: str = "", limit: int = 20) -> list[dict]:
+        from users.models import Skill
+
+        from .engine.text import normalize
+
+        query_n = normalize(query)
+        results: dict[str, dict] = {}
+        for name, (category, aliases) in SKILL_TAXONOMY.items():
+            if not query_n or query_n in normalize(name) or any(query_n in a for a in aliases):
+                results[name.lower()] = {"nom": name, "categorie": category}
+        db_skills = Skill.objects.all()
+        if query_n:
+            db_skills = db_skills.filter(nom__icontains=query)
+        for skill in db_skills[:limit]:
+            results.setdefault(skill.nom.lower(), {"nom": skill.nom, "categorie": skill.categorie})
+        ordered = sorted(results.values(), key=lambda s: (not normalize(s["nom"]).startswith(query_n), s["nom"]))
+        return ordered[:limit]
 
 
-class CVAnalyzerService:
-    """Service d'analyse de CV."""
+# --------------------------------------------------------------------------- #
+# Construction des données d'entrée du moteur
+# --------------------------------------------------------------------------- #
 
-    @staticmethod
-    def extract_text_from_pdf(file_path: str) -> str:
-        """Extraire le texte d'un fichier PDF."""
-        try:
-            from PyPDF2 import PdfReader
-            
-            reader = PdfReader(file_path)
-            text = ""
-            
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-            
-            return text.strip()
-        except Exception as e:
-            logger.error(f"Erreur lors de l'extraction de texte PDF : {e}")
-            return ""
+def latest_cv_analysis(candidate):
+    from cv_analysis.models import AnalysisStatus, CVAnalysis
 
-    @staticmethod
-    def analyze_skills(text: str) -> List[Dict[str, Any]]:
-        """Analyser les compétences à partir du texte du CV."""
-        try:
-            prompt = f"""
-            Analyse le texte de CV suivant et extrait les compétences techniques.
-            Retourne uniquement une liste JSON valide avec ce format :
-            [
-                {{"name": "nom_compétence", "category": "catégorie", "proficiency": "niveau", "years_experience": nombre}}
-            ]
-            
-            Texte du CV :
-            {text}
-            """
-            response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-            skills_data = json.loads(response.text)
-            return skills_data
-        except Exception as e:
-            logger.error(f"Erreur lors de l'analyse des compétences : {e}")
-            return []
+    return (
+        CVAnalysis.objects.filter(cv__candidate=candidate, status=AnalysisStatus.COMPLETED)
+        .select_related("cv")
+        .prefetch_related("detected_skills")
+        .order_by("-analyzed_at")
+        .first()
+    )
 
-    @staticmethod
-    def calculate_employability_score(skills: List[Dict], experience: int) -> int:
-        """Calculer le score d'employabilité."""
-        # TODO : Implémenter l'algorithme de scoring réel
-        base_score = 50
-        skill_bonus = min(len(skills) * 5, 30)
-        experience_bonus = min(experience * 2, 20)
-        return base_score + skill_bonus + experience_bonus
 
-    @staticmethod
-    def generate_recommendations(analysis: Dict) -> List[Dict[str, Any]]:
-        """Générer des recommandations d'amélioration de CV."""
-        try:
-            prompt = f"""
-            Basé sur l'analyse de CV suivante, génère 3-5 recommandations d'amélioration.
-            Retourne uniquement une liste JSON valide avec ce format :
-            [
-                {{"category": "catégorie", "title": "titre", "description": "description", "priority": "high/medium/low"}}
-            ]
-            
-            Analyse :
-            {json.dumps(analysis, ensure_ascii=False)}
-            """
-            response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-            recommendations_data = json.loads(response.text)
-            return recommendations_data
-        except Exception as e:
-            logger.error(f"Erreur lors de la génération des recommandations : {e}")
-            return []
+def build_candidate_data(candidate) -> CandidateData:
+    """Rassembler profil déclaré + CV analysé en une seule vue pour le moteur."""
+    skills: dict[str, str] = {}
+    analysis = latest_cv_analysis(candidate)
+    if analysis:
+        for detected in analysis.detected_skills.all():
+            skills[canonical_skill_name(detected.name)] = detected.proficiency_level or "INTERMEDIAIRE"
+    # Les compétences déclarées par le candidat priment sur celles détectées.
+    for candidate_skill in candidate.competences.select_related("skill"):
+        skills[canonical_skill_name(candidate_skill.skill.nom)] = candidate_skill.niveau
 
+    experiences = list(candidate.experiences.all())
+    formations = list(candidate.formations.all())
+
+    if experiences:
+        experience_years = candidate.experience_annees
+    elif analysis and analysis.experience_years:
+        experience_years = analysis.experience_years
+    else:
+        experience_years = 0.0
+
+    levels = [education_level_from_text(f"{f.diplome} {f.description or ''}")[0] for f in formations]
+    levels = [lvl for lvl in levels if lvl is not None]
+    if not levels and analysis and analysis.education_level:
+        level, _ = education_level_from_text(analysis.education_level)
+        if level is not None:
+            levels = [level]
+
+    text_parts = [candidate.biographie or ""]
+    text_parts += [f"{e.poste} {e.entreprise} {e.description or ''}" for e in experiences]
+    text_parts += [f"{f.diplome} {f.etablissement} {f.description or ''}" for f in formations]
+    if analysis and analysis.cv.extracted_text:
+        text_parts.append(analysis.cv.extracted_text[:8000])
+
+    return CandidateData(
+        skills=skills,
+        experience_years=float(experience_years or 0),
+        city=candidate.ville,
+        education_level=max(levels) if levels else None,
+        text="\n".join(p for p in text_parts if p),
+        job_titles=[e.poste for e in experiences],
+    )
+
+
+def build_job_data(job) -> JobData:
+    return JobData(
+        title=job.titre,
+        description=job.description or "",
+        requirements=job.exigences or "",
+        skills=[s.nom for s in job.competences_requises.all()],
+        # Le moteur raisonne en années (fractions possibles : 3 mois = 0,25 an).
+        required_experience=(job.experience_requise_mois / 12) if job.experience_requise_mois is not None else None,
+        location=job.localisation,
+        education=job.niveau_etude,
+    )
+
+
+def open_jobs():
+    """Offres publiées et non expirées."""
+    from jobs.models import Job
+
+    return Job.objects.published().filter(
+        Q(date_expiration__isnull=True) | Q(date_expiration__gt=timezone.now())
+    )
+
+
+def jobs_with_skills(queryset):
+    from users.models import Skill
+
+    return queryset.select_related("entreprise").prefetch_related(
+        Prefetch("competences_requises", queryset=Skill.objects.only("id", "nom"))
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Matching, recommandations et classement
+# --------------------------------------------------------------------------- #
 
 class MatchingService:
-    """Service de correspondance d'emploi."""
+    """Compatibilité candidat ↔ offre avec cache persistant."""
 
     @staticmethod
-    def match_cv_to_job(cv_id: int, job_id: int) -> Dict[str, Any]:
-        """Correspondre le CV à l'emploi et retourner le score de compatibilité."""
-        try:
-            from cv_analysis.models import CV, CVAnalysis
-            from jobs.models import Job
-            
-            # Récupérer le CV et l'emploi
-            cv = CV.objects.get(id=cv_id)
-            job = Job.objects.get(id=job_id)
-            
-            # Récupérer l'analyse du CV si elle existe
-            try:
-                analysis = CVAnalysis.objects.get(cv=cv)
-                cv_text = cv.extracted_text or ""
-                cv_skills = [skill.name for skill in analysis.detected_skills.all()]
-            except CVAnalysis.DoesNotExist:
-                cv_text = cv.extracted_text or ""
-                cv_skills = []
-            
-            # Préparer les données de l'emploi
-            job_text = f"""
-            Titre : {job.title}
-            Description : {job.description}
-            Exigences : {job.requirements}
-            Compétences requises : {job.skills_required}
-            """
-            
-            # Utiliser Gemini pour le matching
-            prompt = f"""
-            Analyse la compatibilité entre ce CV et cet emploi.
-            Retourne uniquement un JSON valide avec ce format :
-            {{
-                "compatibility_score": nombre_entre_0_et_100,
-                "explanation": "explication_détaillée",
-                "matched_skills": ["compétence1", "compétence2"],
-                "missing_skills": ["compétence_manquante1", "compétence_manquante2"],
-                "recommendations": ["recommandation1", "recommandation2"]
-            }}
-            
-            CV :
-            {cv_text}
-            Compétences du CV : {', '.join(cv_skills)}
-            
-            Emploi :
-            {job_text}
-            """
-            response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-            matching_data = json.loads(response.text)
-            
-            return {
-                "cv_id": cv_id,
-                "job_id": job_id,
-                **matching_data
-            }
-        except Exception as e:
-            logger.error(f"Erreur lors du matching CV/Emploi : {e}")
-            return {
-                "cv_id": cv_id,
-                "job_id": job_id,
-                "compatibility_score": 50,
-                "explanation": f"Erreur lors de l'analyse : {str(e)}",
-                "matched_skills": [],
-                "missing_skills": [],
-                "recommendations": []
-            }
+    def _is_fresh(result: MatchResult) -> bool:
+        ttl = engine_settings()["MATCH_CACHE_TTL"]
+        return result.computed_at >= timezone.now() - timedelta(seconds=ttl)
 
     @staticmethod
-    def get_job_recommendations(candidate_id: int, limit: int = 10) -> List[Dict[str, Any]]:
-        """Obtenir des recommandations d'emploi pour un candidat."""
-        try:
-            from users.models import CandidateProfile
-            from cv_analysis.models import CV, CVAnalysis
-            from jobs.models import Job
-            
-            # Récupérer le profil candidat
-            candidate = CandidateProfile.objects.get(id=candidate_id)
-            
-            # Récupérer le CV et l'analyse
-            try:
-                cv = CV.objects.filter(candidate=candidate).first()
-                if cv:
-                    analysis = CVAnalysis.objects.filter(cv=cv).first()
-                    cv_text = cv.extracted_text or ""
-                    cv_skills = [skill.name for skill in analysis.detected_skills.all()] if analysis else []
-                else:
-                    cv_text = ""
-                    cv_skills = []
-            except:
-                cv_text = ""
-                cv_skills = []
-            
-            # Récupérer les emplois actifs
-            jobs = Job.objects.filter(is_active=True, is_archived=False)[:limit * 2]
-            
-            # Analyser chaque emploi avec Gemini
-            recommendations = []
-            for job in jobs:
-                job_text = f"""
-                Titre : {job.title}
-                Entreprise : {job.company.profile.company_name if job.company else "N/A"}
-                Description : {job.description}
-                Exigences : {job.requirements}
-                Compétences requises : {job.skills_required}
-                """
-                
-                prompt = f"""
-                Évalue la compatibilité de ce candidat pour ce poste.
-                Retourne uniquement un JSON valide avec ce format :
-                {{
-                    "compatibility_score": nombre_entre_0_et_100,
-                    "match_reason": "raison_de_la_correspondance"
-                }}
-                
-                Profil du candidat :
-                Expérience : {candidate.experience_years} ans
-                Compétences : {', '.join(cv_skills)}
-                CV : {cv_text[:500]}
-                
-                Emploi :
-                {job_text}
-                """
-                
-                try:
-                    response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-                    match_data = json.loads(response.text)
-                    
-                    recommendations.append({
-                        "job_id": job.id,
-                        "title": job.title,
-                        "company": job.company.profile.company_name if job.company else "N/A",
-                        "compatibility_score": match_data.get("compatibility_score", 50),
-                        "match_reason": match_data.get("match_reason", "Analyse non disponible")
-                    })
-                except:
-                    continue
-            
-            # Trier par score de compatibilité et limiter
-            recommendations.sort(key=lambda x: x["compatibility_score"], reverse=True)
-            return recommendations[:limit]
-            
-        except Exception as e:
-            logger.error(f"Erreur lors des recommandations d'emploi : {e}")
+    def _serialize(score: int, details: dict, cached: bool) -> dict:
+        return {**details, "score": score, "cached": cached}
+
+    @classmethod
+    def get_match(cls, candidate, job, *, candidate_data: CandidateData | None = None,
+                  refresh: bool = False) -> dict:
+        if not refresh:
+            cached = MatchResult.objects.filter(candidate=candidate, job=job).first()
+            if cached and cls._is_fresh(cached):
+                return cls._serialize(cached.score, cached.details, True)
+        candidate_data = candidate_data or build_candidate_data(candidate)
+        outcome = compute_match(candidate_data, build_job_data(job))
+        score = outcome.pop("score")
+        MatchResult.objects.update_or_create(
+            candidate=candidate, job=job, defaults={"score": score, "details": outcome}
+        )
+        return cls._serialize(score, outcome, False)
+
+    @classmethod
+    def _match_many(cls, candidate, jobs: list, candidate_data=None, refresh=False) -> dict:
+        """Retourner {job_id: match} en ne recalculant que ce qui est nécessaire."""
+        results: dict = {}
+        if not refresh:
+            existing = MatchResult.objects.filter(candidate=candidate, job_id__in=[j.id for j in jobs])
+            for result in existing:
+                if cls._is_fresh(result):
+                    results[result.job_id] = cls._serialize(result.score, result.details, True)
+        to_compute = [job for job in jobs if job.id not in results]
+        if to_compute:
+            candidate_data = candidate_data or build_candidate_data(candidate)
+            new_rows = []
+            for job in to_compute:
+                outcome = compute_match(candidate_data, build_job_data(job))
+                score = outcome.pop("score")
+                results[job.id] = cls._serialize(score, outcome, False)
+                new_rows.append(MatchResult(candidate=candidate, job=job, score=score, details=outcome))
+            MatchResult.objects.bulk_create(
+                new_rows,
+                update_conflicts=True,
+                unique_fields=["candidate", "job"],
+                update_fields=["score", "details", "computed_at"],
+            )
+        return results
+
+    @classmethod
+    def recommend_jobs(cls, candidate, *, limit: int | None = None, min_score: int = 0,
+                       refresh: bool = False) -> list[dict]:
+        from applications.models import Application
+
+        jobs = list(
+            jobs_with_skills(open_jobs()).order_by("-date_publication")[: engine_settings()["MAX_JOBS_SCANNED"]]
+        )
+        if not jobs:
             return []
+        matches = cls._match_many(candidate, jobs, refresh=refresh)
+        applied = set(Application.objects.filter(candidate=candidate).values_list("offre_id", flat=True))
+        recommendations = []
+        for job in jobs:
+            match = matches[job.id]
+            if match["score"] < min_score:
+                continue
+            recommendations.append({"job": job, "match": match, "already_applied": job.id in applied})
+        recommendations.sort(key=lambda r: (-r["match"]["score"], -r["job"].date_publication.timestamp()))
+        return recommendations[:limit] if limit else recommendations
 
+    @classmethod
+    def rank_applications(cls, applications, *, refresh: bool = False) -> list[dict]:
+        """Classer des candidatures par compatibilité décroissante (indicatif)."""
+        applications = list(applications)
+        by_candidate: dict = {}
+        for application in applications:
+            by_candidate.setdefault(application.candidate_id, []).append(application)
+
+        ranked = []
+        for applications_of_candidate in by_candidate.values():
+            candidate = applications_of_candidate[0].candidate
+            jobs = [a.offre for a in applications_of_candidate]
+            matches = cls._match_many(candidate, jobs, refresh=refresh)
+            for application in applications_of_candidate:
+                ranked.append({"application": application, "match": matches[application.offre_id]})
+        ranked.sort(key=lambda r: (-r["match"]["score"], r["application"].date_candidature))
+        for position, item in enumerate(ranked, start=1):
+            item["rang"] = position
+        return ranked
+
+
+# --------------------------------------------------------------------------- #
+# Analyse de CV
+# --------------------------------------------------------------------------- #
+
+class CVAnalysisService:
+    NO_OFFERS_MESSAGE = (
+        "Aucune offre d'emploi n'est publiée pour le moment : l'analyse de votre CV se fait "
+        "par rapport aux offres. Relancez-la dès que des offres seront disponibles."
+    )
+
+    @staticmethod
+    def offers() -> list[OfferInput]:
+        """Offres ouvertes auxquelles comparer les CV."""
+        jobs = jobs_with_skills(open_jobs()).order_by("-date_publication")[: engine_settings()["MAX_JOBS_SCANNED"]]
+        return [
+            OfferInput(
+                job=build_job_data(job),
+                meta={"id": str(job.id), "entreprise": job.entreprise.nom_entreprise if job.entreprise else ""},
+            )
+            for job in jobs
+        ]
+
+    @classmethod
+    def analyze(cls, cv, *, notify: bool = True):
+        """Lire le fichier, analyser le CV et enregistrer les résultats."""
+        from cv_analysis.models import (
+            AIRecommendation,
+            AnalysisStatus,
+            CVAnalysis,
+            DetectedSkill,
+            MissingSkill,
+        )
+
+        try:
+            with cv.file.open("rb") as handle:
+                text = extract_text(handle, cv.file_name or cv.file.name)
+        except (CVParsingError, FileNotFoundError, OSError) as exc:
+            return cls._mark_failed(cv, str(exc) or "Fichier illisible.")
+
+        if len(text.strip()) < 30:
+            return cls._mark_failed(
+                cv,
+                "Aucun texte exploitable n'a été trouvé. Le CV est peut-être une image scannée : "
+                "utilisez un PDF ou un DOCX contenant du texte.",
+            )
+
+        try:
+            result = analyze_cv_text(text, cls.offers(), city=cv.candidate.ville)
+        except NoOffersError:
+            return cls._mark_failed(cv, cls.NO_OFFERS_MESSAGE, status=AnalysisStatus.NO_OFFERS, text=text)
+
+        with transaction.atomic():
+            cv.extracted_text = text
+            cv.is_processed = True
+            cv.save(update_fields=["extracted_text", "is_processed", "updated_at"])
+
+            analysis, _ = CVAnalysis.objects.update_or_create(
+                cv=cv,
+                defaults={
+                    "employability_score": result.employability_score,
+                    "strengths": result.strengths,
+                    "weaknesses": result.weaknesses,
+                    "recommendations_data": result.recommendations,
+                    "score_details": {
+                        **result.score_details,
+                        "offres": result.offers,
+                        "offres_analysees": result.offers_count,
+                        "contacts": result.contacts,
+                        "sections": result.sections,
+                        "word_count": result.word_count,
+                    },
+                    "summary": result.summary,
+                    "experience_years": result.experience_years,
+                    "education_level": result.education_label,
+                    "status": AnalysisStatus.COMPLETED,
+                    "error_message": "",
+                },
+            )
+            analysis.detected_skills.all().delete()
+            analysis.missing_skills.all().delete()
+            analysis.recommendations.all().delete()
+            DetectedSkill.objects.bulk_create([
+                DetectedSkill(
+                    analysis=analysis,
+                    name=s["name"][:100],
+                    category=s["category"],
+                    proficiency_level=s["proficiency_level"],
+                    years_experience=s["years_experience"],
+                )
+                for s in result.detected_skills
+            ])
+            MissingSkill.objects.bulk_create([
+                MissingSkill(analysis=analysis, name=m["name"][:100], importance=m["importance"])
+                for m in result.missing_skills
+            ])
+            AIRecommendation.objects.bulk_create([
+                AIRecommendation(
+                    analysis=analysis,
+                    category=r["category"],
+                    title=r["title"][:200],
+                    description=r["description"],
+                    priority=r["priority"],
+                )
+                for r in result.recommendations
+            ])
+
+        if notify:
+            from notifications.models import NotificationType
+            from notifications.services import NotificationService
+
+            NotificationService.notify(
+                cv.candidate.user,
+                NotificationType.PROFILE,
+                "Analyse de CV terminée",
+                f"Votre CV « {cv.file_name} » correspond à {result.employability_score}/100 "
+                f"aux offres publiées les plus proches de votre profil.",
+            )
+        return analysis
+
+    @staticmethod
+    def _mark_failed(cv, message: str, *, status=None, text: str | None = None):
+        """Enregistrer une analyse non réalisée (fichier illisible, ou aucune offre à comparer)."""
+        from cv_analysis.models import AnalysisStatus, CVAnalysis
+
+        logger.info("Analyse du CV %s impossible : %s", cv.pk, message)
+        cv.is_processed = False
+        fields = ["is_processed", "updated_at"]
+        if text is not None:
+            cv.extracted_text = text
+            fields.append("extracted_text")
+        cv.save(update_fields=fields)
+        with transaction.atomic():
+            analysis, _ = CVAnalysis.objects.update_or_create(
+                cv=cv,
+                defaults={
+                    "status": status or AnalysisStatus.FAILED,
+                    "error_message": message,
+                    "employability_score": 0,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "recommendations_data": [],
+                    "score_details": {},
+                    "summary": "",
+                },
+            )
+            # Pas d'analyse : on ne conserve aucun résultat d'une analyse précédente.
+            analysis.detected_skills.all().delete()
+            analysis.missing_skills.all().delete()
+            analysis.recommendations.all().delete()
+        return analysis
+
+    @classmethod
+    def analyze_async_or_sync(cls, cv):
+        """Utiliser Celery si activé, sinon analyser immédiatement (cas par défaut)."""
+        if engine_settings()["USE_CELERY"]:
+            from .tasks import analyze_cv_task
+
+            analyze_cv_task.delay(cv.pk)
+            return None
+        return cls.analyze(cv)
+
+
+# --------------------------------------------------------------------------- #
+# Suggestions de profil extraites du CV
+# --------------------------------------------------------------------------- #
+
+class ProfileSuggestionService:
+    """Propositions de complétion du profil à partir du dernier CV analysé.
+
+    Lecture seule : rien n'est enregistré ici. Le candidat choisit, corrige
+    puis valide lui-même chaque proposition via les endpoints du profil.
+    """
+
+    PERSONAL_LABELS = {
+        "telephone": "Téléphone",
+        "date_naissance": "Date de naissance",
+        "adresse": "Adresse",
+        "ville": "Ville",
+        "linkedin": "LinkedIn",
+        "github": "GitHub",
+        "portfolio": "Portfolio",
+        "biographie": "Présentation",
+    }
+
+    @staticmethod
+    def _same(a, b) -> bool:
+        from .engine.text import normalize
+
+        return normalize(str(a or "")).rstrip("/") == normalize(str(b or "")).rstrip("/")
+
+    @classmethod
+    def for_candidate(cls, profile) -> dict:
+        from cv_analysis.models import AnalysisStatus, CV
+        from .engine.profile_extractor import extract_profile
+        from .engine.text import normalize
+
+        cv = (
+            CV.objects.filter(candidate=profile, analysis__status=AnalysisStatus.COMPLETED)
+            .exclude(extracted_text__isnull=True).exclude(extracted_text="")
+            .select_related("analysis").order_by("-uploaded_at").first()
+        )
+        empty = {"cv": None, "informations": [], "competences": [], "experiences": [], "formations": []}
+        if cv is None:
+            return empty
+
+        extracted = extract_profile(cv.extracted_text)
+        user = profile.user
+        current_values = {
+            "telephone": user.telephone,
+            "date_naissance": profile.date_naissance.isoformat() if profile.date_naissance else None,
+            "adresse": profile.adresse,
+            "ville": profile.ville,
+            "linkedin": profile.linkedin,
+            "github": profile.github,
+            "portfolio": profile.portfolio,
+            "biographie": profile.biographie,
+        }
+        informations = [
+            {
+                "champ": field,
+                "label": cls.PERSONAL_LABELS[field],
+                "valeur": value,
+                "valeur_actuelle": current_values.get(field) or None,
+            }
+            for field, value in extracted["informations"].items()
+            if not cls._same(value, current_values.get(field))
+        ]
+
+        owned_skills = {canonical_skill_name(s.skill.nom) for s in profile.competences.select_related("skill")}
+        competences = []
+        for detected in cv.analysis.detected_skills.all():
+            name = canonical_skill_name(detected.name)
+            if name in owned_skills or any(c["nom"] == name for c in competences):
+                continue
+            competences.append({
+                "nom": name,
+                "categorie": detected.category,
+                "niveau": detected.proficiency_level or "INTERMEDIAIRE",
+                "annees_experience": detected.years_experience,
+            })
+
+        known_experiences = {
+            (normalize(e.poste), e.date_debut.strftime("%Y-%m")) for e in profile.experiences.all()
+        }
+        experiences = [
+            e for e in extracted["experiences"]
+            if (normalize(e["poste"]), (e["date_debut"] or "")[:7]) not in known_experiences
+        ]
+
+        known_degrees = {normalize(f.diplome) for f in profile.formations.all()}
+        formations = [f for f in extracted["formations"] if normalize(f["diplome"]) not in known_degrees]
+
+        return {
+            "cv": {"id": cv.id, "file_name": cv.file_name, "analyzed_at": cv.analysis.updated_at},
+            "informations": informations,
+            "competences": competences,
+            "experiences": experiences,
+            "formations": formations,
+        }
+
+
+# --------------------------------------------------------------------------- #
+# Simulation d'entretien
+# --------------------------------------------------------------------------- #
 
 class InterviewService:
-    """Service d'entretien."""
-
     @staticmethod
-    def generate_questions(interview_session_id: int) -> List[Dict[str, Any]]:
-        """Générer des questions d'entretien basées sur les exigences de l'emploi."""
-        try:
-            from interviews.models import InterviewSession, InterviewQuestion
-            from jobs.models import Job
-            
-            # Récupérer la session d'entretien
-            session = InterviewSession.objects.get(id=interview_session_id)
-            
-            # Récupérer l'emploi
-            job = session.offre
-            
-            # Préparer les données de l'emploi
-            job_text = f"""
-            Titre : {job.titre}
-            Description : {job.description}
-            """
-            
-            # Utiliser Gemini pour générer les questions
-            prompt = f"""
-            Génère 5 questions d'entretien pour ce poste.
-            Retourne uniquement une liste JSON valide avec ce format :
-            [
-                {{
-                    "question": "texte_de_la_question",
-                    "type_question": "OPEN",
-                    "ordre": numéro
-                }}
-            ]
-            
-            Poste :
-            {job_text}
-            """
-            response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-            questions_data = json.loads(response.text)
-            
-            # Créer les questions en base de données
-            for q_data in questions_data:
-                InterviewQuestion.objects.create(
-                    session=session,
-                    question=q_data["question"],
-                    type_question=q_data["type_question"],
-                    ordre=q_data["ordre"]
-                )
-            
-            return questions_data
-        except Exception as e:
-            logger.error(f"Erreur lors de la génération des questions : {e}")
-            return []
+    @transaction.atomic
+    def create_session(candidate, *, job=None, interview_type: str = "MIXED", count: int | None = None):
+        from interviews.models import InterviewQuestion, InterviewSession, InterviewStatus
 
-    @staticmethod
-    def evaluate_answer(question: str, answer: str) -> Dict[str, Any]:
-        """Évaluer la réponse d'entretien."""
-        try:
-            prompt = f"""
-            Évalue la réponse suivante à la question d'entretien.
-            Retourne uniquement un JSON valide avec ce format :
-            {{
-                "score": nombre_entre_0_et_10,
-                "feedback": "feedback_bref",
-                "strengths": ["force1", "force2"],
-                "improvements": ["amélioration1", "amélioration2"]
-            }}
-            
-            Question : {question}
-            Réponse : {answer}
-            """
-            response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-            evaluation_data = json.loads(response.text)
-            return evaluation_data
-        except Exception as e:
-            logger.error(f"Erreur lors de l'évaluation de la réponse : {e}")
-            return {
-                "score": 5.0,
-                "feedback": "Erreur lors de l'évaluation",
-                "strengths": [],
-                "improvements": []
-            }
+        count = count or engine_settings()["INTERVIEW_DEFAULT_QUESTIONS"]
+        session = InterviewSession.objects.create(
+            candidate=candidate,
+            offre=job,
+            type_entretien=interview_type,
+            date_session=timezone.now(),
+            statut=InterviewStatus.SCHEDULED,
+        )
+        candidate_data = build_candidate_data(candidate)
+        if job is not None:
+            job_data = build_job_data(job)
+            job_skills, _ = job_data.effective_skills()
+            title, company = job.titre, job.entreprise.nom_entreprise
+        else:
+            job_skills = list(candidate_data.skills)[:6]
+            title = candidate_data.job_titles[0] if candidate_data.job_titles else None
+            company = None
 
-    @staticmethod
-    def generate_feedback(interview_session_id: int) -> Dict[str, Any]:
-        """Générer un feedback d'entretien complet."""
-        try:
-            from interviews.models import InterviewSession, InterviewQuestion, AIFeedback
-            from jobs.models import Job
-            
-            # Récupérer la session d'entretien
-            session = InterviewSession.objects.get(id=interview_session_id)
-            
-            # Récupérer l'emploi
-            job = session.offre
-            
-            # Récupérer les questions et réponses du candidat
-            questions = InterviewQuestion.objects.filter(session=session)
-            
-            # Préparer le contexte de l'entretien
-            job_text = f"""
-            Titre : {job.titre}
-            Description : {job.description}
-            """
-            
-            # Préparer les réponses
-            answers_text = "\n".join([
-                f"Q{i+1}: {q.question}\nR: {q.reponse}"
-                for i, q in enumerate(questions)
-            ])
-            
-            # Utiliser Gemini pour générer le feedback
-            prompt = f"""
-            Évalue cette session d'entretien et génère un feedback complet.
-            Retourne uniquement un JSON valide avec ce format :
-            {{
-                "score_global": nombre_entre_0_et_100,
-                "points_forts": ["force1", "force2"],
-                "points_faibles": ["amélioration1", "amélioration2"],
-                "conseils": ["conseil1", "conseil2"]
-            }}
-            
-            Poste :
-            {job_text}
-            
-            Réponses du candidat :
-            {answers_text}
-            """
-            response = get_genai_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-            feedback_data = json.loads(response.text)
-            
-            # Créer le feedback en base de données
-            AIFeedback.objects.create(
+        questions = generate_questions(
+            job_title=title,
+            company=company,
+            job_skills=job_skills,
+            candidate_skills=list(candidate_data.skills),
+            interview_type=interview_type,
+            count=count,
+            seed=str(session.id),
+        )
+        InterviewQuestion.objects.bulk_create([
+            InterviewQuestion(
                 session=session,
-                score_global=feedback_data.get("score_global", 50),
-                points_forts=feedback_data.get("points_forts", []),
-                points_faibles=feedback_data.get("points_faibles", []),
-                conseils=feedback_data.get("conseils", [])
+                question=q.question,
+                type_question=q.type_question,
+                categorie=q.categorie,
+                competence=q.competence,
+                mots_cles=q.keywords,
+                ordre=index,
             )
-            
-            return feedback_data
-        except Exception as e:
-            logger.error(f"Erreur lors de la génération du feedback : {e}")
-            return {
-                "score_global": 50,
-                "points_forts": [],
-                "points_faibles": [],
-                "conseils": []
-            }
+            for index, q in enumerate(questions, start=1)
+        ])
+        return session
+
+    @staticmethod
+    def answer(question, text: str) -> dict:
+        from interviews.models import InterviewStatus
+
+        session = question.session
+        if session.statut in {InterviewStatus.COMPLETED, InterviewStatus.CANCELLED}:
+            raise AIServiceError("Cette session d'entretien est terminée.", 409)
+        evaluation = evaluate_answer(question.question, text, question.mots_cles, question.type_question)
+        question.reponse = text
+        question.score = evaluation["score"]
+        question.evaluation = evaluation
+        question.save(update_fields=["reponse", "score", "evaluation"])
+        if session.statut == InterviewStatus.SCHEDULED:
+            session.statut = InterviewStatus.IN_PROGRESS
+            session.save(update_fields=["statut"])
+        return evaluation
+
+    @staticmethod
+    @transaction.atomic
+    def complete(session):
+        from interviews.models import AIFeedback, InterviewStatus
+
+        questions = list(session.questions.all())
+        evaluations = []
+        for question in questions:
+            if question.reponse and not question.evaluation:
+                question.evaluation = evaluate_answer(
+                    question.question, question.reponse, question.mots_cles, question.type_question
+                )
+                question.score = question.evaluation["score"]
+                question.save(update_fields=["evaluation", "score"])
+            evaluations.append(question.evaluation if question.reponse else {"score": 0})
+        summary = summarize_session(evaluations, [q.categorie for q in questions])
+
+        feedback, _ = AIFeedback.objects.update_or_create(
+            session=session,
+            defaults={
+                "score_global": summary["score_global"],
+                "points_forts": summary["points_forts"],
+                "points_faibles": summary["points_faibles"],
+                "conseils": summary["conseils"],
+                "scores_par_categorie": summary["scores_par_categorie"],
+            },
+        )
+        session.score_global = summary["score_global"]
+        session.statut = InterviewStatus.COMPLETED
+        if session.date_session:
+            session.duree = max(1, round((timezone.now() - session.date_session).total_seconds() / 60))
+        session.save(update_fields=["score_global", "statut", "duree"])
+
+        from notifications.models import NotificationType
+        from notifications.services import NotificationService
+
+        NotificationService.notify(
+            session.candidate.user,
+            NotificationType.INTERVIEW,
+            "Feedback d'entretien disponible",
+            f"Votre simulation d'entretien a obtenu {summary['score_global']}/100. Consultez vos axes de progrès.",
+        )
+        return feedback
+
+
+# --------------------------------------------------------------------------- #
+# Lettre de motivation
+# --------------------------------------------------------------------------- #
+
+class CoverLetterService:
+    @staticmethod
+    def generate(candidate, job) -> str:
+        match = MatchingService.get_match(candidate, job)
+        candidate_data = build_candidate_data(candidate)
+        latest = candidate.experiences.order_by("-en_cours", "-date_debut").first()
+        latest_formation = candidate.formations.order_by("-date_fin").first()
+        education_label = None
+        if latest_formation:
+            education_label = latest_formation.diplome
+        elif candidate_data.education_level is not None:
+            analysis = latest_cv_analysis(candidate)
+            education_label = analysis.education_level if analysis else None
+        matched = match.get("matched_skills", [])
+        others = [s for s in candidate_data.skills if s not in matched
+                  and skill_category(s) not in {"Langues", None}]
+        user = candidate.user
+        return generate_cover_letter(CoverLetterInput(
+            candidate_name=f"{user.prenom} {user.nom}".strip() or user.email,
+            job_title=job.titre,
+            company=job.entreprise.nom_entreprise,
+            city=candidate.ville,
+            matched_skills=matched,
+            other_skills=others,
+            missing_skills=match.get("missing_skills", []),
+            experience_years=candidate_data.experience_years,
+            last_position=latest.poste if latest else None,
+            last_employer=latest.entreprise if latest else None,
+            education_label=education_label,
+            email=user.email,
+            phone=user.telephone,
+        ))
+
+
+def engine_status() -> dict:
+    return {
+        "status": "healthy",
+        "engine": ENGINE_NAME,
+        "version": ENGINE_VERSION,
+        "external_api": False,
+        "skills_in_catalog": len(SKILL_TAXONOMY),
+        "features": [
+            "analyse_cv",
+            "recommandations_offres",
+            "classement_candidatures",
+            "simulation_entretien",
+            "lettre_motivation",
+            "extraction_competences",
+        ],
+    }
+
+
+def extract_skills_from_text(text: str) -> list[dict]:
+    return [{"nom": s.name, "categorie": s.category, "occurrences": s.occurrences} for s in extract_skills(text)]

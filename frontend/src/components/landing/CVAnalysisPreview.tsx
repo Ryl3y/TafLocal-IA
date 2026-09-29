@@ -2,17 +2,14 @@ import { Check, X, TrendingUp } from 'lucide-react'
 
 export function CVAnalysisPreview() {
   const skills = [
-    { name: 'Python', status: 'matched' },
-    { name: 'React', status: 'matched' },
-    { name: 'Docker', status: 'matched' },
-    { name: 'AWS', status: 'missing' },
-    { name: 'Kubernetes', status: 'missing' },
+    { name: 'Compétence détectée dans votre CV', status: 'matched' },
+    { name: 'Compétence demandée par les offres', status: 'missing' },
   ]
 
   return (
-    <section className="py-20 sm:py-32 bg-background">
+    <section className="py-16 sm:py-24 lg:py-32 bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
             Analyse de CV en temps réel
           </h2>
@@ -22,24 +19,23 @@ export function CVAnalysisPreview() {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          <div className="rounded-xl border border-border bg-surface p-8 shadow-lg">
+          <div className="rounded-xl border border-border bg-surface p-5 shadow-lg sm:p-8">
             {/* Score Section */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-foreground">Score global</h3>
+                <h3 className="text-xl font-semibold text-foreground">Score d'employabilité</h3>
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-secondary" />
-                  <span className="text-3xl font-bold text-primary">78%</span>
+                  <span className="text-3xl font-bold text-primary">—</span>
                 </div>
               </div>
-              <div className="h-3 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full" style={{ width: '78%' }}></div>
-              </div>
+              <div className="h-3 bg-border rounded-full overflow-hidden" />
+              <p className="mt-2 text-sm text-muted">Calculé dès que vous déposez votre CV.</p>
             </div>
 
             {/* Skills Section */}
             <div className="mb-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Compétences détectées</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-4">Compétences</h3>
               <div className="space-y-3">
                 {skills.map((skill, index) => (
                   <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
@@ -65,12 +61,12 @@ export function CVAnalysisPreview() {
               <div className="space-y-3">
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold">💡 Conseil :</span> Renforcez vos compétences en AWS et Kubernetes pour augmenter votre score de 15%.
+                    <span className="font-semibold">💡 Conseil :</span> les compétences manquantes les plus demandées vous sont signalées en priorité.
                   </p>
                 </div>
                 <div className="p-4 rounded-lg bg-secondary/5 border border-secondary/20">
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold">🎯 Action :</span> Ajoutez des projets concrets utilisant Docker pour démontrer votre expertise DevOps.
+                    <span className="font-semibold">🎯 Action :</span> des pistes concrètes pour renforcer votre CV et votre profil.
                   </p>
                 </div>
               </div>

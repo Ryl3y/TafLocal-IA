@@ -9,16 +9,22 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
+from authentication.permissions import IsAdmin
+
 
 def redirect_to_docs(request):
     return redirect('swagger-ui')
 
+
+# La cartographie complète de l'API aide un attaquant : publique en développement seulement.
+_docs_access = {} if settings.API_DOCS_PUBLIC else {"permission_classes": [IsAdmin]}
+
 urlpatterns = [
     path("", redirect_to_docs, name="home"),
-    path("admin/", admin.site.urls),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path(settings.ADMIN_URL, admin.site.urls),
+    path("api/schema/", SpectacularAPIView.as_view(**_docs_access), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema", **_docs_access), name="swagger-ui"),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema", **_docs_access), name="redoc"),
     path("api/auth/", include("authentication.urls")),
     path("api/users/", include("users.urls")),
     path("api/companies/", include("companies.urls")),

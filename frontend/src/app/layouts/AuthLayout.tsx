@@ -10,11 +10,12 @@ export function AuthLayout() {
       <Navbar />
 
       <main
-        className="flex flex-1 items-center justify-center p-4"
+        className="relative flex flex-1 items-center justify-center overflow-hidden p-4 lg:p-8"
         role="main"
       >
-        <div className="w-full max-w-md">
-          {/* TODO: Auth form container styling */}
+        {/* Arc gris décoratif du kit */}
+        <div className="onboarding-arc" aria-hidden />
+        <div className="relative w-full max-w-5xl">
           <Outlet />
         </div>
       </main>

@@ -33,7 +33,7 @@ export function AICompanion({
         className,
       )}
     >
-      <div className="relative shrink-0">
+      <div className="relative shrink-0 self-start">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground ring-2 ring-border">
           {name.slice(0, 2).toUpperCase()}
         </span>

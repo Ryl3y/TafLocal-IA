@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ROUTES } from '../../constants/routes'
 
 export function Footer() {
   return (
@@ -45,7 +46,7 @@ export function Footer() {
             <h3 className="font-semibold text-foreground mb-4">Entreprise</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="#about" className="text-sm text-muted hover:text-foreground transition-colors">
+                <Link to={ROUTES.ABOUT} className="text-sm text-muted hover:text-foreground transition-colors">
                   À propos
                 </Link>
               </li>
@@ -60,7 +61,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="#contact" className="text-sm text-muted hover:text-foreground transition-colors">
+                <Link to={ROUTES.CONTACT} className="text-sm text-muted hover:text-foreground transition-colors">
                   Contact
                 </Link>
               </li>
@@ -72,17 +73,17 @@ export function Footer() {
             <h3 className="font-semibold text-foreground mb-4">Légal</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="#privacy" className="text-sm text-muted hover:text-foreground transition-colors">
+                <Link to={ROUTES.PRIVACY} className="text-sm text-muted hover:text-foreground transition-colors">
                   Confidentialité
                 </Link>
               </li>
               <li>
-                <Link to="#terms" className="text-sm text-muted hover:text-foreground transition-colors">
+                <Link to={ROUTES.TERMS} className="text-sm text-muted hover:text-foreground transition-colors">
                   Conditions d'utilisation
                 </Link>
               </li>
               <li>
-                <Link to="#cookies" className="text-sm text-muted hover:text-foreground transition-colors">
+                <Link to={`${ROUTES.PRIVACY}#cookies`} className="text-sm text-muted hover:text-foreground transition-colors">
                   Cookies
                 </Link>
               </li>

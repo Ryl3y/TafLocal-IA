@@ -10,27 +10,27 @@ from django.utils.translation import gettext_lazy as _
 
 class InterviewType(models.TextChoices):
     """Énumération des types d'entretien (correspond au PostgreSQL ENUM interview_type)."""
-    TECHNICAL = "TECHNICAL", _("Technical")
-    BEHAVIORAL = "BEHAVIORAL", _("Behavioral")
-    MIXED = "MIXED", _("Mixed")
-    HR = "HR", _("HR")
+    TECHNICAL = "TECHNICAL", _("Technique")
+    BEHAVIORAL = "BEHAVIORAL", _("Comportemental")
+    MIXED = "MIXED", _("Mixte")
+    HR = "HR", _("RH")
 
 
 class InterviewStatus(models.TextChoices):
     """Énumération des statuts d'entretien (correspond au PostgreSQL ENUM interview_status)."""
-    SCHEDULED = "SCHEDULED", _("Scheduled")
-    IN_PROGRESS = "IN_PROGRESS", _("In Progress")
-    COMPLETED = "COMPLETED", _("Completed")
-    CANCELLED = "CANCELLED", _("Cancelled")
-    FAILED = "FAILED", _("Failed")
+    SCHEDULED = "SCHEDULED", _("Planifiée")
+    IN_PROGRESS = "IN_PROGRESS", _("En cours")
+    COMPLETED = "COMPLETED", _("Terminée")
+    CANCELLED = "CANCELLED", _("Annulée")
+    FAILED = "FAILED", _("Échouée")
 
 
 class QuestionType(models.TextChoices):
     """Énumération des types de question (correspond au PostgreSQL ENUM question_type)."""
-    OPEN = "OPEN", _("Open")
-    MULTIPLE_CHOICE = "MULTIPLE_CHOICE", _("Multiple Choice")
+    OPEN = "OPEN", _("Ouverte")
+    MULTIPLE_CHOICE = "MULTIPLE_CHOICE", _("Choix multiple")
     CODE = "CODE", _("Code")
-    BEHAVIORAL = "BEHAVIORAL", _("Behavioral")
+    BEHAVIORAL = "BEHAVIORAL", _("Comportementale")
 
 
 class InterviewSession(models.Model):
@@ -66,7 +66,7 @@ class InterviewSession(models.Model):
         db_table = "session_entretien"
         verbose_name = _("Session d'entretien")
         verbose_name_plural = _("Sessions d'entretien")
-        ordering = ["-date_session"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"Entretien pour {self.candidate} - {self.offre.titre if self.offre else 'N/A'}"
@@ -98,6 +98,10 @@ class InterviewQuestion(models.Model):
         verbose_name=_("Score")
     )
     ordre = models.IntegerField(verbose_name=_("Ordre"))
+    categorie = models.CharField(max_length=30, blank=True, null=True, verbose_name=_("Catégorie"))
+    competence = models.CharField(max_length=100, blank=True, null=True, verbose_name=_("Compétence évaluée"))
+    mots_cles = models.JSONField(default=list, blank=True, verbose_name=_("Mots-clés attendus"))
+    evaluation = models.JSONField(default=dict, blank=True, verbose_name=_("Évaluation de la réponse"))
 
     class Meta:
         db_table = "question_entretien"
@@ -129,6 +133,7 @@ class AIFeedback(models.Model):
     points_forts = models.JSONField(default=list, blank=True, verbose_name=_("Points forts"))
     points_faibles = models.JSONField(default=list, blank=True, verbose_name=_("Points faibles"))
     conseils = models.JSONField(default=list, blank=True, verbose_name=_("Conseils"))
+    scores_par_categorie = models.JSONField(default=dict, blank=True, verbose_name=_("Scores par catégorie"))
     date_feedback = models.DateTimeField(auto_now_add=True, verbose_name=_("Date du feedback"))
 
     class Meta:

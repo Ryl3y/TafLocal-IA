@@ -4,11 +4,15 @@
 
 /* ─── TafLocal AI Design System — Tailwind Theme ─────────────────────────── */
 @theme {
-  /* Brand */
-  --color-primary: #0f4c81;
-  --color-primary-hover: #0d3f6b;
-  --color-primary-light: #e8f1f8;
+  /* Brand — palette inspirée du kit Jôbizz (bleu acier + marine) */
+  --color-primary: #356899;
+  --color-primary-hover: #2b5782;
+  --color-primary-light: #eaf1f8;
   --color-primary-foreground: #ffffff;
+
+  /* Marine profond : écran de lancement, cartes « mises en avant » sombres */
+  --color-navy: #1b2a3b;
+  --color-navy-soft: #243549;
 
   --color-secondary: #2cb67d;
   --color-secondary-hover: #25a36c;
@@ -20,38 +24,48 @@
   --color-accent-light: #fff8e6;
   --color-accent-foreground: #1f2937;
 
+  /* Pastels des cartes « recommandées » */
+  --color-pastel-pink: #fde8ee;
+  --color-pastel-blue: #e7f0fd;
+  --color-pastel-mint: #e6f7f0;
+  --color-pastel-sand: #fdf3e2;
+
   /* Semantic */
-  --color-background: #f8fafc;
+  --color-background: #f6f7fb;
   --color-surface: #ffffff;
-  --color-foreground: #1f2937;
-  --color-muted: #6b7280;
-  --color-border: #e5e7eb;
+  --color-field: #f2f3f7;
+  --color-foreground: #0d0d26;
+  --color-muted: #95969d;
+  --color-border: #eceef3;
+  --color-arc: #d5dce4;
 
   /* Status */
   --color-success: #2cb67d;
   --color-warning: #ffb703;
   --color-error: #ef4444;
-  --color-info: #0f4c81;
+  --color-info: #356899;
 
   /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', monospace;
 
   /* Layout */
-  --spacing-navbar: 4rem;
+  --spacing-navbar: 4.5rem;
   --spacing-sidebar: 16rem;
   --spacing-footer: 3rem;
 
-  /* Radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  /* Radius — formes généreuses du kit */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(15 76 129 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(15 76 129 / 0.08), 0 2px 4px -2px rgb(15 76 129 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(15 76 129 / 0.1), 0 4px 6px -4px rgb(15 76 129 / 0.05);
+  /* Shadows — très diffuses */
+  --shadow-sm: 0 2px 8px -2px rgb(13 13 38 / 0.05);
+  --shadow-md: 0 8px 24px -8px rgb(13 13 38 / 0.1);
+  --shadow-lg: 0 18px 40px -12px rgb(53 104 153 / 0.28);
 
   /* Animations */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -63,12 +77,18 @@
 }
 
 [data-theme='dark'] {
-  --color-background: #0f172a;
-  --color-surface: #1e293b;
-  --color-foreground: #f8fafc;
-  --color-muted: #94a3b8;
-  --color-border: #334155;
-  --color-primary-light: #0f4c8120;
+  --color-background: #111a25;
+  --color-surface: #1b2a3b;
+  --color-field: #243549;
+  --color-foreground: #f4f6fa;
+  --color-muted: #9aa6b5;
+  --color-border: #2c3e53;
+  --color-arc: #243549;
+  --color-primary-light: #35689933;
+  --color-pastel-pink: #3a2530;
+  --color-pastel-blue: #22344a;
+  --color-pastel-mint: #1f3a33;
+  --color-pastel-sand: #3a3226;
   --color-secondary-light: #2cb67d20;
   --color-accent-light: #ffb70320;
 }
@@ -139,4 +159,25 @@
   .page-header { @apply mb-6; }
   .page-content { @apply flex flex-col gap-6; }
   .page-section { @apply min-h-16 rounded-lg border border-dashed border-border p-6; }
+
+  /* Arc gris en haut des écrans d'onboarding / auth */
+  .onboarding-arc {
+    @apply pointer-events-none absolute inset-x-0 top-0 h-48 bg-arc sm:h-56;
+    border-bottom-left-radius: 50% 100%;
+    border-bottom-right-radius: 50% 100%;
+  }
+
+  /* Motif discret de l'en-tête d'une offre (formes géométriques claires) */
+  .job-hero-pattern {
+    background-image:
+      radial-gradient(circle at 12% 20%, rgb(255 255 255 / 0.08) 0 18px, transparent 19px),
+      radial-gradient(circle at 88% 30%, rgb(255 255 255 / 0.07) 0 26px, transparent 27px),
+      radial-gradient(circle at 70% 85%, rgb(255 255 255 / 0.06) 0 14px, transparent 15px),
+      linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  }
+
+  /* Titre de section « Offres à la une … Voir tout » */
+  .section-title { @apply flex items-center justify-between gap-3; }
+  .section-title > h2 { @apply text-base font-semibold text-foreground sm:text-lg; }
+  .section-title > a { @apply text-xs text-muted transition-colors hover:text-primary sm:text-sm; }
 }

@@ -3,15 +3,24 @@ import { ROUTES } from '../../constants/routes'
 import { Button } from '../ui/Button'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 
+const workflow = [
+  { title: 'Votre CV', subtitle: 'Dépôt', icon: 'CV', card: 'border-border bg-surface', badge: 'bg-primary/10 text-primary', dot: 'bg-primary' },
+  { title: 'Analyse IA', subtitle: 'Traitement', icon: 'AI', card: 'border-primary/20 bg-gradient-to-br from-primary/10 to-secondary/10', badge: 'bg-primary text-white', dot: 'bg-secondary' },
+  { title: 'Matching', subtitle: 'Comparaison', icon: 'M', card: 'border-border bg-surface', badge: 'bg-secondary/10 text-secondary', dot: 'bg-accent' },
+  { title: 'Offres', subtitle: 'Recommandées', icon: '★', card: 'border-accent/20 bg-gradient-to-br from-accent/10 to-primary/10', badge: 'bg-accent text-white', dot: 'bg-primary' },
+  { title: 'Entretien', subtitle: 'Simulation', icon: '🎤', card: 'border-border bg-surface', badge: 'bg-primary/10 text-primary', dot: 'bg-secondary' },
+  { title: 'Emploi', subtitle: 'Trouvé', icon: '✓', card: 'border-secondary/20 bg-gradient-to-br from-secondary/10 to-accent/10', badge: 'bg-secondary text-white', dot: 'bg-primary' },
+]
+
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-background py-20 sm:py-32">
+    <section className="relative overflow-hidden bg-background py-16 sm:py-24 lg:py-32">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
           {/* Left Content */}
           <div className="space-y-8">
             <div className="space-y-4">
-              <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                 Trouvez les opportunités qui correspondent réellement à vos compétences.
               </h1>
               <p className="text-lg text-muted sm:text-xl max-w-2xl">
@@ -20,24 +29,24 @@ export function Hero() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to={ROUTES.AUTH}>
+              <Link to={ROUTES.REGISTER}>
                 <Button size="lg" className="w-full sm:w-auto">
                   Créer mon compte
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="#how-it-works">
+              <a href="#how-it-works">
                 <Button variant="outline" size="lg" className="w-full sm:w-auto">
                   Découvrir le fonctionnement
                 </Button>
-              </Link>
+              </a>
             </div>
 
             {/* Trust Badges */}
             <div className="flex flex-wrap gap-4 pt-4">
               <div className="flex items-center gap-2 text-sm text-muted">
                 <CheckCircle2 className="h-5 w-5 text-secondary" />
-                <span>Plateforme 100 % gratuite</span>
+                <span>Plateforme gratuite</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted">
                 <CheckCircle2 className="h-5 w-5 text-secondary" />
@@ -50,118 +59,29 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Right Content - AI Workflow Visualization */}
-          <div className="relative">
-            <div className="relative space-y-4">
-              {/* CV Card */}
-              <div className="absolute left-1/2 top-0 -translate-x-1/2 w-64 bg-surface rounded-xl border border-border p-4 shadow-lg z-10">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-semibold">CV</span>
+          {/* Right Content - AI Workflow Visualization (desktop uniquement) */}
+          <ol className="mx-auto hidden w-full max-w-xs lg:block" aria-label="Parcours TafLocal AI">
+            {workflow.map((step, index) => (
+              <li key={step.title} className="flex flex-col items-center">
+                <div className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 shadow-lg ${step.card}`}>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-semibold ${step.badge}`}>
+                    {step.icon}
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">Votre CV</p>
-                    <p className="text-xs text-muted">Upload</p>
+                    <p className="font-medium text-foreground">{step.title}</p>
+                    <p className="text-xs text-muted">{step.subtitle}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Arrow Down */}
-              <div className="absolute left-1/2 top-20 -translate-x-1/2 flex flex-col items-center">
-                <div className="h-12 w-0.5 bg-border"></div>
-                <div className="h-4 w-4 rounded-full bg-primary"></div>
-              </div>
-
-              {/* AI Analysis Card */}
-              <div className="absolute left-1/2 top-32 -translate-x-1/2 w-64 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl border border-primary/20 p-4 shadow-lg z-10">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                    <span className="text-white font-semibold">AI</span>
+                {index < workflow.length - 1 && (
+                  <div className="flex flex-col items-center" aria-hidden>
+                    <div className="h-3 w-0.5 bg-border" />
+                    <div className={`h-3 w-3 rounded-full ${step.dot}`} />
+                    <div className="h-3 w-0.5 bg-border" />
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">Analyse IA</p>
-                    <p className="text-xs text-muted">Traitement</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Arrow Down */}
-              <div className="absolute left-1/2 top-52 -translate-x-1/2 flex flex-col items-center">
-                <div className="h-12 w-0.5 bg-border"></div>
-                <div className="h-4 w-4 rounded-full bg-secondary"></div>
-              </div>
-
-              {/* Matching Card */}
-              <div className="absolute left-1/2 top-64 -translate-x-1/2 w-64 bg-surface rounded-xl border border-border p-4 shadow-lg z-10">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                    <span className="text-secondary font-semibold">M</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">Matching</p>
-                    <p className="text-xs text-muted">Comparaison</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Arrow Down */}
-              <div className="absolute left-1/2 top-84 -translate-x-1/2 flex flex-col items-center">
-                <div className="h-12 w-0.5 bg-border"></div>
-                <div className="h-4 w-4 rounded-full bg-accent"></div>
-              </div>
-
-              {/* Recommendations Card */}
-              <div className="absolute left-1/2 top-96 -translate-x-1/2 w-64 bg-gradient-to-br from-accent/10 to-primary/10 rounded-xl border border-accent/20 p-4 shadow-lg z-10">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
-                    <span className="text-white font-semibold">★</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">Offres</p>
-                    <p className="text-xs text-muted">Recommandées</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Arrow Down */}
-              <div className="absolute left-1/2 top-[28rem] -translate-x-1/2 flex flex-col items-center">
-                <div className="h-12 w-0.5 bg-border"></div>
-                <div className="h-4 w-4 rounded-full bg-primary"></div>
-              </div>
-
-              {/* Interview Card */}
-              <div className="absolute left-1/2 top-[32rem] -translate-x-1/2 w-64 bg-surface rounded-xl border border-border p-4 shadow-lg z-10">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-semibold">🎤</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">Entretien</p>
-                    <p className="text-xs text-muted">Simulation</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Arrow Down */}
-              <div className="absolute left-1/2 top-[36rem] -translate-x-1/2 flex flex-col items-center">
-                <div className="h-12 w-0.5 bg-border"></div>
-                <div className="h-4 w-4 rounded-full bg-secondary"></div>
-              </div>
-
-              {/* Success Card */}
-              <div className="absolute left-1/2 top-[40rem] -translate-x-1/2 w-64 bg-gradient-to-br from-secondary/10 to-accent/10 rounded-xl border border-secondary/20 p-4 shadow-lg z-10">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                    <span className="text-white font-semibold">✓</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">Emploi</p>
-                    <p className="text-xs text-muted">Trouvé</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+                )}
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </section>

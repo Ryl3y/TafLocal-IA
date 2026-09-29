@@ -4,7 +4,6 @@ Backend d'authentification personnalisé pour TafLocal AI.
 
 from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 
 User = get_user_model()
 
@@ -14,10 +13,13 @@ class EmailBackend(BaseBackend):
 
     def authenticate(self, request, username=None, password=None, **kwargs):
         """Authentifie un utilisateur par email et mot de passe."""
-        try:
-            # username peut être email ou username
-            user = User.objects.get(Q(email=username) | Q(username=username))
-        except User.DoesNotExist:
+        if not username or password is None:
+            return None
+        # username peut être l'email (prioritaire) ou le nom d'utilisateur
+        user = User.objects.filter(email__iexact=username).first()
+        if user is None:
+            user = User.objects.filter(username=username).first()
+        if user is None:
             return None
 
         if user.check_password(password) and self.user_can_authenticate(user):

@@ -2,20 +2,24 @@
 Vues de notification pour TafLocal AI.
 """
 
-from rest_framework import viewsets, status
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Notification
 from .serializers import NotificationSerializer, NotificationUpdateSerializer
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
-    """Viewset de notification."""
+    """Notifications de l'utilisateur connecté.
+
+    La création se fait uniquement côté serveur (services métier) : un
+    utilisateur ne peut pas créer de notification pour un autre utilisateur.
+    """
 
     queryset = Notification.objects.all()
     permission_classes = [IsAuthenticated]
@@ -23,6 +27,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     filterset_fields = ["lu", "type"]
     ordering_fields = ["date_envoi"]
     ordering = ["-date_envoi"]
+    http_method_names = ["get", "patch", "delete", "post", "head", "options"]
 
     def get_serializer_class(self):
         if self.action in ["update", "partial_update"]:
@@ -32,22 +37,31 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
 
-    @extend_schema(
-        methods=["POST"],
-        responses=OpenApiResponse(description="Toutes les notifications marquées comme lues"),
-        description="Marquer toutes les notifications comme lues"
-    )
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "La création de notifications n'est pas autorisée."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    @extend_schema(responses=OpenApiResponse(description="Notification marquée comme lue"))
+    @action(detail=True, methods=["post"])
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.lu = True
+        notification.save(update_fields=["lu"])
+        return Response(NotificationSerializer(notification).data)
+
+    @extend_schema(responses=OpenApiResponse(description="Toutes les notifications marquées comme lues"))
     @action(detail=False, methods=["post"])
     def mark_all_read(self, request):
         """Marquer toutes les notifications comme lues."""
-        self.get_queryset().update(lu=True)
-        return Response({"message": "Toutes les notifications marquées comme lues"}, status=status.HTTP_200_OK)
+        updated = self.get_queryset().filter(lu=False).update(lu=True)
+        return Response(
+            {"message": "Toutes les notifications marquées comme lues", "updated": updated},
+            status=status.HTTP_200_OK,
+        )
 
-    @extend_schema(
-        methods=["GET"],
-        responses=OpenApiResponse(description="Nombre de notifications non lues"),
-        description="Obtenir le nombre de notifications non lues"
-    )
+    @extend_schema(responses=OpenApiResponse(description="Nombre de notifications non lues"))
     @action(detail=False, methods=["get"])
     def unread_count(self, request):
         """Obtenir le nombre de notifications non lues."""
